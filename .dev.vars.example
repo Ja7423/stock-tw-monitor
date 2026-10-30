@@ -1,0 +1,4 @@
+TELEGRAM_BOT_TOKEN=123456:ABC-your-bot-token
+TELEGRAM_WEBHOOK_SECRET=any-random-string-you-generate
+ALLOWED_CHAT_ID=123456789
+FINMIND_TOKEN=your-finmind-token

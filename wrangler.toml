@@ -1,0 +1,16 @@
+name = "tw-stock-monitor"
+main = "src/index.ts"
+compatibility_date = "2025-09-01"
+
+# Cron 使用 UTC：07:00 = 台北 15:00（主要），08:00 = 台北 16:00（資料延遲時補跑）
+[triggers]
+crons = ["0 7 * * 1-5", "0 8 * * 1-5"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "stock-monitor"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+[observability]
+enabled = true
