@@ -60,6 +60,7 @@ flowchart TD
     report["report.ts<br/>報告文字格式"]
     config["config.ts<br/>參數預設、驗證、合併"]
     explain["explain.ts<br/>/explain 說明文字"]
+    commands["commands.ts<br/>指令清單、/help、選單"]
   end
 
   subgraph io["外部服務"]
@@ -73,6 +74,7 @@ flowchart TD
   bot --> job
   bot --> config
   bot --> explain
+  bot --> commands
   bot --> db
   bot --> finmind
   bot --> telegram
@@ -90,8 +92,10 @@ flowchart TD
 
 - **進入點** `index.ts`：Worker 的 `fetch` 和 `scheduled` handler。webhook 會先驗證 `X-Telegram-Bot-Api-Secret-Token`，再交給 `bot.ts` 處理。
 - **流程** `bot.ts`、`job.ts`：串接下面兩層。`/report` 和 `/add` 會重用 `job.ts` 的 `runReport`、`syncStock`。
-- **純邏輯** `analysis.ts`、`report.ts`、`config.ts`、`explain.ts`：輸入資料、回傳結果，不呼叫任何外部服務，所以單元測試（`test/`）都集中在這一層。
+- **純邏輯** `analysis.ts`、`report.ts`、`config.ts`、`explain.ts`、`commands.ts`：輸入資料、回傳結果，不呼叫任何外部服務，所以單元測試（`test/`）都集中在這一層。
 - **外部服務** `db.ts`、`finmind.ts`、`telegram.ts`：各包一個外部服務，其他模組不直接下 SQL 或呼叫 HTTP API。
+
+`commands.ts` 是指令清單的唯一來源，`/help` 的文字和 Telegram 選單都從它產生。`scripts/set-commands.mjs` 會直接用 Node 載入它來呼叫 `setMyCommands`，所以它不 import 其他模組。
 
 `types.ts` 放共用型別（`Env`、`Bar`、`StockConfig`、`WatchItem`），幾乎每個模組都會引用，圖中省略。
 
@@ -199,7 +203,7 @@ flowchart TD
 | 外部觸發每日報告、洗版推播 | 報告只由 Cron Trigger 呼叫 `scheduled()`，沒有對外的 HTTP 入口；`job_runs` 確保一天只自動推播一次 | `src/index.ts`、`src/job.ts` |
 | SQL injection | 所有 SQL 都用 `prepare().bind()` 參數化，使用者輸入不會拼進 SQL 字串 | `src/db.ts` |
 | 惡意或錯誤的參數 | 股票代號必須符合 `^\d{4,6}[A-Z]?$`；`range`、`ma`、`pct` 有上下限；均線最多 8 條 | `src/config.ts` |
-| 一次塞大量股票，耗盡對外請求額度 | `/add` 一次最多 10 檔 | `src/bot.ts` `MAX_ADD_PER_COMMAND` |
+| 一次塞大量股票，耗盡對外請求額度 | `/add` 一次最多 10 檔 | `src/commands.ts` `MAX_ADD_PER_COMMAND` |
 | Telegram 等太久而重送同一則訊息，造成指令重複執行 | 先回 200，再用 `waitUntil` 在背景處理 | `src/index.ts` |
 | 錯誤訊息帶出大量外部回應內容 | FinMind、Telegram 的錯誤回應只保留前 200 字 | `src/finmind.ts`、`src/telegram.ts` |
 | 回覆內容被當成格式語法解析 | `sendMessage` 不設 `parse_mode`，以純文字送出 | `src/telegram.ts` |
@@ -214,6 +218,7 @@ flowchart LR
   end
   subgraph ghs["GitHub Secrets"]
     cfToken["CLOUDFLARE_API_TOKEN<br/>CLOUDFLARE_ACCOUNT_ID"]
+    ghTg["TELEGRAM_BOT_TOKEN<br/>（選配）"]
   end
   subgraph cfs["Cloudflare Worker Secrets"]
     wsec["TELEGRAM_BOT_TOKEN<br/>TELEGRAM_WEBHOOK_SECRET<br/>ALLOWED_CHAT_ID<br/>FINMIND_TOKEN"]
@@ -222,6 +227,7 @@ flowchart LR
   devvars -- "wrangler dev" --> localWorker["本機 Worker"]
   cfToken -- "只用於部署" --> actions["GitHub Actions"]
   actions -- "wrangler deploy" --> worker["Worker"]
+  ghTg -- "部署後更新指令選單" --> tg
   wsec -- "執行時注入 env" --> worker
   worker -- "Authorization: Bearer" --> fm["FinMind"]
   worker -- "bot token 放在 API 網址路徑" --> tg["Telegram"]
@@ -234,6 +240,7 @@ flowchart LR
 | `ALLOWED_CHAT_ID` | Worker Secret | 白名單 chat |
 | `FINMIND_TOKEN` | Worker Secret | 以 `Authorization` header 送出，不放在網址裡，避免出現在記錄中 |
 | `CLOUDFLARE_API_TOKEN` | GitHub Secret | CI 部署用，權限只開 Workers Scripts:Edit 和 D1:Edit |
+| `TELEGRAM_BOT_TOKEN` | GitHub Secret（選配） | CI 部署後呼叫 `setMyCommands` 更新選單。只傳給這一個步驟，腳本出錯時也只印 Telegram 的錯誤說明，不印含 token 的網址 |
 
 - 密鑰都不進版控：本機用 `.dev.vars`（已在 `.gitignore`），線上用 `wrangler secret put`，`.dev.vars.example` 只放假值。
 - `wrangler.toml` 只寫 `database_name`，不寫 `database_id`：wrangler 部署和跑 migration 時會用名稱查到資料庫，所以同一份設定可以直接給別人部署到自己的帳號。即使 `database_id` 外流也不是密鑰，沒有 Cloudflare 帳號權限無法存取資料庫。

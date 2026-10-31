@@ -1,3 +1,4 @@
+import { HELP, MAX_ADD_PER_COMMAND } from "./commands";
 import { STOCK_ID_RE, describeConfig, parseConfigPatch } from "./config";
 import {
   addStock,
@@ -14,26 +15,6 @@ import { fetchStockInfo } from "./finmind";
 import { runReport, syncStock, taipeiDate } from "./job";
 import { sendMessage, type TelegramUpdate } from "./telegram";
 import type { Env } from "./types";
-
-// 每檔新增約需 2 個對外請求，免費方案單次執行上限約 50 個
-const MAX_ADD_PER_COMMAND = 10;
-
-const HELP = `📈 台股K棒監測 指令
-/add 2330 2317 — 新增監測（一次最多 ${MAX_ADD_PER_COMMAND} 檔）
-/del 2330 — 刪除監測
-/list — 列出清單與個股設定
-/report — 立即產生報告
-/explain — 報告欄位說明
-/settings — 查看全域設定
-
-全域設定：
-/set range 20 — 觀察區間（日）
-/set ma 5,20,60,240 — 均線週期
-/set pct 240 — 位階百分位區間（日）
-
-個股覆寫：
-/override 2330 range=20 ma=5,10,20 pct=60
-/reset 2330 — 清除個股覆寫`;
 
 function parseStockIds(args: string[]): string[] {
   const ids = [...new Set(args.map((a) => a.toUpperCase()))];

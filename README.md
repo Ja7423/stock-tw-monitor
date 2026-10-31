@@ -75,7 +75,7 @@ npx wrangler secret put FINMIND_TOKEN
 # 4. 部署（如果 wrangler 把 database_id 寫回 wrangler.toml，用 git checkout wrangler.toml 捨棄即可）
 npm run deploy
 
-# 5. 設定 webhook 和指令選單
+# 5. 設定 webhook 和指令選單（需要 Node 22.18 以上）
 TELEGRAM_BOT_TOKEN=xxx TELEGRAM_WEBHOOK_SECRET=yyy ./scripts/set-webhook.sh https://tw-stock-monitor.<你的子網域>.workers.dev
 ```
 
@@ -83,6 +83,16 @@ TELEGRAM_BOT_TOKEN=xxx TELEGRAM_WEBHOOK_SECRET=yyy ./scripts/set-webhook.sh http
 
 `.github/workflows/deploy.yml` 會在 push 到 `master` 時執行測試、migration 和部署。
 要先在 repo 的 Secrets 設定 `CLOUDFLARE_API_TOKEN`（權限選 Workers Scripts:Edit 和 D1:Edit，不需要 zone 權限）以及 `CLOUDFLARE_ACCOUNT_ID`。
+如果也設定 `TELEGRAM_BOT_TOKEN`，每次部署完會自動更新 Telegram 的指令選單；沒設定就略過這一步。
+
+### 新增或修改指令
+
+指令清單統一寫在 `src/commands.ts`，`/help` 的文字和 Telegram 選單都從這裡產生。新增指令時：
+
+1. 在 `src/commands.ts` 加一筆，並在 `src/bot.ts` 的 `handleUpdate` 加上處理。
+2. 更新 Telegram 選單：有設定 GitHub 自動部署的話 push 就會更新，否則手動執行 `TELEGRAM_BOT_TOKEN=xxx npm run bot:commands`。
+
+只改指令的行為、不動清單的話，部署就好，不用更新選單。改完選單後如果手機上沒馬上變，重新打開聊天室即可。
 
 ## 本機開發
 
