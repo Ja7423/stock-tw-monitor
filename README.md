@@ -58,7 +58,7 @@ npm install
 npx wrangler login
 
 # 1. 建立 D1，把輸出的 database_id 填進 wrangler.toml
-npx wrangler d1 create stock-monitor
+npx wrangler d1 create stock-tw-monitor
 
 # 2. 建立資料表
 npm run db:migrate
