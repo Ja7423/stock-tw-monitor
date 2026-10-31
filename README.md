@@ -78,8 +78,8 @@ TELEGRAM_BOT_TOKEN=xxx TELEGRAM_WEBHOOK_SECRET=yyy ./scripts/set-webhook.sh http
 
 ### GitHub 自動部署（選配）
 
-`.github/workflows/deploy.yml` 會在 push 到 `main` 時執行測試、migration 和部署。
-要先在 repo 的 Secrets 設定 `CLOUDFLARE_API_TOKEN`（權限選 Workers Scripts:Edit 和 D1:Edit）以及 `CLOUDFLARE_ACCOUNT_ID`。
+`.github/workflows/deploy.yml` 會在 push 到 `master` 時執行測試、migration 和部署。
+要先在 repo 的 Secrets 設定 `CLOUDFLARE_API_TOKEN`（權限選 Workers Scripts:Edit 和 D1:Edit，不需要 zone 權限）以及 `CLOUDFLARE_ACCOUNT_ID`。
 
 ## 本機開發
 
