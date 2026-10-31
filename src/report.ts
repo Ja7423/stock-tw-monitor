@@ -25,34 +25,38 @@ export function formatStock({ item, analysis: a }: StockResult, today: string): 
 
   const day = a.dayChangePct === null ? "" : ` (${fmtPct(a.dayChangePct)})`;
   const stale = a.date !== today ? ` [資料日 ${a.date}]` : "";
-  const lines = [
-    `${title}  ${fmtPrice(a.close)}${day}${stale}`,
-    `  ${TREND_LABEL[a.trend]}｜${a.rangeBars}日 ${fmtPct(a.change.pct)} (${fmtSigned(a.change.abs)})｜多${a.votes.up}/空${a.votes.down}`,
-    `  斜率 ${fmtPct(a.regression.slopePctPerDay, 2)}/日 R² ${a.regression.r2.toFixed(2)}｜` +
-      `${a.candles.red}紅${a.candles.black}黑${a.candles.flat}平｜${STRUCTURE_LABEL[a.structure]}`,
-  ];
-
-  lines.push("  均線乖離率");
+  const ma = ["  均線乖離率"];
   for (const m of a.mas) {
-    lines.push(
+    ma.push(
       m.deviationPct === null
         ? `    MA${m.period} —`
         : `    MA${m.period} ${fmtPct(m.deviationPct)} ${m.deviationPct >= 0 ? "✅" : "❌"}`,
     );
   }
-  if (a.alignment) lines.push(`  ${ALIGNMENT_LABEL[a.alignment]}`);
+  if (a.alignment) ma.push(`  ${ALIGNMENT_LABEL[a.alignment]}`);
 
   const crosses = a.mas
     .filter((m) => m.cross)
     .map((m) => `${m.cross === "up" ? "站上" : "跌破"} MA${m.period}`);
-  if (crosses.length > 0) lines.push(`  🔔 ${crosses.join("、")}`);
+  if (crosses.length > 0) ma.push(`  🔔 ${crosses.join("、")}`);
 
   const yearNote = a.week52.bars < WEEK52_BARS ? `(僅${a.week52.bars}日)` : "";
-  lines.push(
-    `  位階 ${a.percentile.bars}日 ${a.percentile.value.toFixed(0)}%｜` +
-      `52週${yearNote} 距高 ${fmtPct(a.week52.fromHighPct)} 距低 ${fmtPct(a.week52.fromLowPct)}`,
-  );
-  return lines.join("\n");
+
+  // 分段和 /explain 的段落一致，每段之間空一行
+  const sections = [
+    [`${title}  ${fmtPrice(a.close)}${day}${stale}`],
+    [`  ${TREND_LABEL[a.trend]}｜${a.rangeBars}日 ${fmtPct(a.change.pct)} (${fmtSigned(a.change.abs)})｜多${a.votes.up}/空${a.votes.down}`],
+    [
+      `  斜率 ${fmtPct(a.regression.slopePctPerDay, 2)}/日 R² ${a.regression.r2.toFixed(2)}｜` +
+        `${a.candles.red}紅${a.candles.black}黑${a.candles.flat}平｜${STRUCTURE_LABEL[a.structure]}`,
+    ],
+    ma,
+    [
+      `  位階 ${a.percentile.bars}日 ${a.percentile.value.toFixed(0)}%｜` +
+        `52週${yearNote} 距高 ${fmtPct(a.week52.fromHighPct)} 距低 ${fmtPct(a.week52.fromLowPct)}`,
+    ],
+  ];
+  return sections.map((s) => s.join("\n")).join("\n\n");
 }
 
 /** 依 Telegram 長度上限切成多則訊息，不會把單一股票拆開 */

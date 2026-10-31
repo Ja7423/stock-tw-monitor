@@ -311,8 +311,11 @@ main { min-width: 0; }
             <div class="ln"><button class="seg" type="button" data-k="counts">偏多 1｜偏空 0｜盤整 1</button></div>
             <div class="ln sep" aria-hidden="true">━━━━━━━━━━</div>
             <div class="ln"><button class="seg" type="button" data-k="price">2330 台積電  1,050 (+1.4%)</button></div>
+            <div class="ln" aria-hidden="true">&nbsp;</div>
             <div class="ln i1"><button class="seg" type="button" data-k="trend">⬆️ 偏多</button>｜<button class="seg" type="button" data-k="range">10日 +4.5% (+45)</button>｜<button class="seg" type="button" data-k="votes">多4/空0</button></div>
+            <div class="ln" aria-hidden="true">&nbsp;</div>
             <div class="ln i1"><button class="seg" type="button" data-k="slope">斜率 +0.42%/日</button> <button class="seg" type="button" data-k="r2">R² 0.81</button>｜<button class="seg" type="button" data-k="candles">7紅3黑0平</button>｜<button class="seg" type="button" data-k="structure">高低點墊高</button></div>
+            <div class="ln" aria-hidden="true">&nbsp;</div>
             <div class="ln i1"><button class="seg" type="button" data-k="ma">均線乖離率</button></div>
             <div class="ln i2"><button class="seg" type="button" data-k="ma" data-p="5" data-d="1.2">MA5 +1.2% ✅</button></div>
             <div class="ln i2"><button class="seg" type="button" data-k="ma" data-p="10" data-d="2.5">MA10 +2.5% ✅</button></div>
@@ -322,6 +325,7 @@ main { min-width: 0; }
             <div class="ln i2"><button class="seg" type="button" data-k="ma" data-p="240" data-d="18.2">MA240 +18.2% ✅</button></div>
             <div class="ln i1"><button class="seg" type="button" data-k="align">多頭排列</button></div>
             <div class="ln i1"><button class="seg" type="button" data-k="cross">🔔 站上 MA5</button></div>
+            <div class="ln" aria-hidden="true">&nbsp;</div>
             <div class="ln i1"><button class="seg" type="button" data-k="pos">位階 120日 92%</button>｜<button class="seg" type="button" data-k="w52">52週 距高 -1.9% 距低 +48.6%</button></div>
           </div>
           <p class="hint">有虛線底線的文字都可以點。也可以用 Tab 鍵移動、Enter 選取。</p>
@@ -375,7 +379,7 @@ const EXPLAIN = {
     title: "報告標頭",
     formula: "日期 = 產生報告當天的台北日期\n預設區間 = 全域設定的 range",
     example: "這份報告在 <b>2026-10-30</b> 產生，全域觀察區間是 <b>10 日</b>。",
-    points: ["有個股覆寫的股票會用自己的區間，看各股第二行的天數", "用 /set range 20 修改預設區間"],
+    points: ["有個股覆寫的股票會用自己的區間，看各股趨勢判定的天數", "用 /set range 20 修改預設區間"],
     ref: ["metrics", "報告標頭"],
   },
   counts: {
@@ -390,7 +394,7 @@ const EXPLAIN = {
     formula: "當日漲跌 = (最新收盤 − 前一根收盤) ÷ 前一根收盤",
     example: "收盤 <b>1,050</b>，前一天收盤約 1,035.5，漲了約 14.5 元，也就是 <b>+1.4%</b>。",
     points: ["和前一天收盤比，跟一般看盤軟體的漲跌幅相同", "後面出現 [資料日 …] 代表這檔還沒有今天的資料，顯示的是最近一個交易日"],
-    ref: ["metrics", "第一行"],
+    ref: ["metrics", "收盤價與當日漲跌"],
   },
   trend: {
     title: "趨勢判定",
