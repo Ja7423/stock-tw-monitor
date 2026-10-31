@@ -84,16 +84,43 @@ TELEGRAM_BOT_TOKEN=xxx TELEGRAM_WEBHOOK_SECRET=yyy ./scripts/set-webhook.sh http
 
 `.github/workflows/deploy.yml` 會在 push 到 `master` 時執行測試、migration 和部署。
 要先在 repo 的 Secrets 設定 `CLOUDFLARE_API_TOKEN`（權限選 Workers Scripts:Edit 和 D1:Edit，不需要 zone 權限）以及 `CLOUDFLARE_ACCOUNT_ID`。
-如果也設定 `TELEGRAM_BOT_TOKEN`，每次部署完會自動更新 Telegram 的指令選單；沒設定就略過這一步。
+如果也設定 `TELEGRAM_BOT_TOKEN`，每次部署完會自動更新 Telegram 的指令選單；沒設定就略過這一步（見 [更新 Telegram 指令選單](#更新-telegram-指令選單)）。
 
 ### 新增或修改指令
 
 指令清單統一寫在 `src/commands.ts`，`/help` 的文字和 Telegram 選單都從這裡產生。新增指令時：
 
 1. 在 `src/commands.ts` 加一筆，並在 `src/bot.ts` 的 `handleUpdate` 加上處理。
-2. 更新 Telegram 選單：有設定 GitHub 自動部署的話 push 就會更新，否則手動執行 `TELEGRAM_BOT_TOKEN=xxx npm run bot:commands`。
+2. 部署後更新 Telegram 選單，步驟見下一節。
 
-只改指令的行為、不動清單的話，部署就好，不用更新選單。改完選單後如果手機上沒馬上變，重新打開聊天室即可。
+只改指令的行為、不動清單的話，部署就好，不用更新選單。
+
+### 更新 Telegram 指令選單
+
+Telegram 的指令選單（輸入 `/` 時跳出的清單）存在 Telegram 那邊，**部署 Worker 不會更新它**。`src/commands.ts` 的清單有變動時，要另外執行以下其中一種方式。
+
+**方式一：手動更新**（需要 Node 22.18 以上）
+
+```bash
+npm run bot:commands
+# 成功會印出：已更新 Telegram 指令選單（N 個指令）：add, del, ...
+```
+
+腳本會自動讀專案根目錄 `.dev.vars` 裡的 `TELEGRAM_BOT_TOKEN`。如果有另外設定同名的環境變數，以環境變數為準，例如 `TELEGRAM_BOT_TOKEN=xxx npm run bot:commands`。
+
+**方式二：GitHub 自動部署時一併更新**
+
+在 repo 的 Settings → Secrets and variables → Actions 新增 `TELEGRAM_BOT_TOKEN`。之後每次 push 到 `master`，部署完會自動同步選單。
+
+> 沒設定這個 secret 時，CI 只會在「Update Telegram command menu」步驟留下一則 notice，然後**直接略過、不會失敗**，所以選單可能一直停在舊版而沒人發現。
+
+**確認選單內容**
+
+```bash
+curl -s "https://api.telegram.org/bot<你的 token>/getMyCommands"
+```
+
+回傳的指令和 `src/commands.ts` 一致就代表更新成功。如果手機上還是舊選單，是客戶端快取，關掉聊天室再打開（或重開 Telegram）即可。
 
 ## 本機開發
 
