@@ -22,6 +22,7 @@ describe("formatReport", () => {
     expect(msg).toContain("⬆️ 偏多");
     expect(msg).toContain("10紅0黑0平");
     expect(msg).toContain("多頭排列");
+    expect(msg).toMatch(/\n  均線乖離率\n    MA5 \+[\d.]+% ✅\n    MA20 \+[\d.]+% ✅\n/);
     expect(msg).toContain("(僅30日)");
   });
 

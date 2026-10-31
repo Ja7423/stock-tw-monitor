@@ -32,10 +32,15 @@ export function formatStock({ item, analysis: a }: StockResult, today: string): 
       `${a.candles.red}紅${a.candles.black}黑${a.candles.flat}平｜${STRUCTURE_LABEL[a.structure]}`,
   ];
 
-  const maText = a.mas
-    .map((m) => (m.deviationPct === null ? `MA${m.period} —` : `MA${m.period} ${m.deviationPct >= 0 ? "✅" : "❌"}${fmtPct(m.deviationPct)}`))
-    .join(" ");
-  lines.push(`  ${maText}${a.alignment ? `｜${ALIGNMENT_LABEL[a.alignment]}` : ""}`);
+  lines.push("  均線乖離率");
+  for (const m of a.mas) {
+    lines.push(
+      m.deviationPct === null
+        ? `    MA${m.period} —`
+        : `    MA${m.period} ${fmtPct(m.deviationPct)} ${m.deviationPct >= 0 ? "✅" : "❌"}`,
+    );
+  }
+  if (a.alignment) lines.push(`  ${ALIGNMENT_LABEL[a.alignment]}`);
 
   const crosses = a.mas
     .filter((m) => m.cross)
