@@ -10,7 +10,7 @@ import {
   setJobRun,
   upsertBars,
 } from "./db";
-import { fetchDailyBars } from "./finmind";
+import { FinMindQuotaError, fetchDailyBars } from "./finmind";
 import { formatReport, type StockResult } from "./report";
 import { sendMessage } from "./telegram";
 import type { Env, WatchItem } from "./types";
@@ -38,16 +38,31 @@ export async function syncStock(env: Env, stockId: string, today: string): Promi
   await upsertBars(env.DB, stockId, bars);
 }
 
-async function syncAll(env: Env, items: WatchItem[], today: string): Promise<string[]> {
+interface SyncResult {
+  errors: string[];
+  quotaExceeded: boolean;
+}
+
+/** 額度用完後不再呼叫 FinMind，剩下還沒有今天資料的股票一併列為受影響 */
+async function syncAll(env: Env, items: WatchItem[], today: string): Promise<SyncResult> {
   const errors: string[] = [];
+  const quotaBlocked: string[] = [];
   for (const item of items) {
+    if (quotaBlocked.length > 0) {
+      if ((await getLatestDate(env.DB, item.stockId)) !== today) quotaBlocked.push(item.stockId);
+      continue;
+    }
     try {
       await syncStock(env, item.stockId, today);
     } catch (err) {
-      errors.push(`${item.stockId}: ${(err as Error).message}`);
+      if (err instanceof FinMindQuotaError) quotaBlocked.push(item.stockId);
+      else errors.push(`${item.stockId}: ${(err as Error).message}`);
     }
   }
-  return errors;
+  if (quotaBlocked.length > 0) {
+    errors.push(`${quotaBlocked.join("、")}: FinMind 每小時請求額度已用完，下一次排程會自動重試`);
+  }
+  return { errors, quotaExceeded: quotaBlocked.length > 0 };
 }
 
 export interface RunOptions {
@@ -69,7 +84,7 @@ export async function runReport(env: Env, now: Date, opts: RunOptions = {}): Pro
       return;
     }
 
-    const errors = await syncAll(env, items, today);
+    const { errors, quotaExceeded } = await syncAll(env, items, today);
     const global = await getGlobalConfig(env.DB);
     const results: StockResult[] = [];
     for (const item of items) {
@@ -87,7 +102,8 @@ export async function runReport(env: Env, now: Date, opts: RunOptions = {}): Pro
       await sendMessage(env, chatId, message);
     }
     if (!opts.force) {
-      await setJobRun(env.DB, today, "sent", errors.join("\n") || undefined);
+      // 額度不足的報告不算完成，不記 sent，讓下一次 cron 補抓後重發
+      await setJobRun(env.DB, today, quotaExceeded ? "quota_exceeded" : "sent", errors.join("\n") || undefined);
       await pruneBarsBefore(env.DB, shiftDate(today, -RETAIN_DAYS));
     }
   } catch (err) {

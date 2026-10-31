@@ -130,12 +130,13 @@ sequenceDiagram
     Job->>DB: job_runs 記為 no_data，等 16:00 補跑
   else 有資料
     Job->>TG: sendMessage，超過長度會拆成多則
-    Job->>DB: job_runs 記為 sent
+    Job->>DB: job_runs 記為 sent，FinMind 額度用完則記為 quota_exceeded，等 16:00 補跑
     Job->>DB: 刪除 600 天前的日K
   end
 ```
 
 - 單一股票抓資料失敗不會中斷報告，會列在報告最後的「⚠️ 更新失敗」，該股票用資料庫裡既有的 K 棒分析。
+- FinMind 回 402（每小時額度用完）時，剩下的股票不再呼叫 FinMind，一起列在「⚠️ 更新失敗」。當天記為 `quota_exceeded`，16:00 的 cron 會補抓並重發，所以那天可能收到兩份報告。
 - 手動 `/report` 走同一個 `runReport`，但略過「今天已推播」和「沒有當天資料」兩個檢查，也不寫 `job_runs`。
 
 ## Telegram 指令流程
@@ -287,7 +288,7 @@ erDiagram
   }
   job_runs {
     TEXT run_date PK
-    TEXT status "sent / no_data / error"
+    TEXT status "sent / no_data / quota_exceeded / error"
     TEXT detail
     TEXT finished_at
   }

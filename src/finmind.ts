@@ -24,12 +24,24 @@ interface InfoRow {
   type: string; // twse / tpex / emerging
 }
 
+const QUOTA_EXCEEDED = 402;
+
+/** FinMind 回 402：token 這一小時的請求額度已用完 */
+export class FinMindQuotaError extends Error {
+  constructor() {
+    super("FinMind 每小時請求額度已用完");
+    this.name = "FinMindQuotaError";
+  }
+}
+
 async function query<T>(env: Env, params: Record<string, string>): Promise<T[]> {
   const url = new URL(BASE_URL);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   const res = await fetch(url, { headers: { Authorization: `Bearer ${env.FINMIND_TOKEN}` } });
+  if (res.status === QUOTA_EXCEEDED) throw new FinMindQuotaError();
   if (!res.ok) throw new Error(`FinMind HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const body = (await res.json()) as FinMindResponse<T>;
+  if (body.status === QUOTA_EXCEEDED) throw new FinMindQuotaError();
   if (body.status !== 200) throw new Error(`FinMind ${body.status}: ${body.msg}`);
   return body.data;
 }
