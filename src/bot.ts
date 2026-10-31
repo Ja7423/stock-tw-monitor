@@ -9,6 +9,7 @@ import {
   setGlobalConfig,
   setOverride,
 } from "./db";
+import { EXPLAIN } from "./explain";
 import { fetchStockInfo } from "./finmind";
 import { runReport, syncStock, taipeiDate } from "./job";
 import { sendMessage, type TelegramUpdate } from "./telegram";
@@ -22,6 +23,7 @@ const HELP = `📈 台股K棒監測 指令
 /del 2330 — 刪除監測
 /list — 列出清單與個股設定
 /report — 立即產生報告
+/explain — 報告欄位說明
 /settings — 查看全域設定
 
 全域設定：
@@ -150,6 +152,9 @@ export async function handleUpdate(env: Env, update: TelegramUpdate): Promise<vo
         break;
       case "/reset":
         reply = await handleReset(env, args);
+        break;
+      case "/explain":
+        reply = EXPLAIN;
         break;
       case "/report":
         await sendMessage(env, chatId, "⏳ 產生報告中…");

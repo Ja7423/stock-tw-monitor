@@ -21,6 +21,7 @@ curl -sS "${API}/setMyCommands" -H "Content-Type: application/json" -d '{
     {"command": "del", "description": "刪除監測 /del 2330"},
     {"command": "list", "description": "列出監測清單"},
     {"command": "report", "description": "立即產生報告"},
+    {"command": "explain", "description": "報告欄位說明"},
     {"command": "settings", "description": "查看全域設定"},
     {"command": "set", "description": "全域設定 /set range 20"},
     {"command": "override", "description": "個股設定 /override 2330 range=20"},
