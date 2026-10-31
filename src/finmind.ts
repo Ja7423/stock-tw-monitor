@@ -1,6 +1,7 @@
 import type { Bar, Env } from "./types";
 
 const BASE_URL = "https://api.finmindtrade.com/api/v4/data";
+const USER_INFO_URL = "https://api.web.finmindtrade.com/v2/user_info";
 
 interface FinMindResponse<T> {
   status: number;
@@ -34,16 +35,41 @@ export class FinMindQuotaError extends Error {
   }
 }
 
-async function query<T>(env: Env, params: Record<string, string>): Promise<T[]> {
-  const url = new URL(BASE_URL);
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+/** 呼叫 FinMind 並檢查 HTTP 與 body 的 status，額度用完丟 FinMindQuotaError */
+async function request<T extends { status: number; msg: string }>(env: Env, url: URL): Promise<T> {
   const res = await fetch(url, { headers: { Authorization: `Bearer ${env.FINMIND_TOKEN}` } });
   if (res.status === QUOTA_EXCEEDED) throw new FinMindQuotaError();
   if (!res.ok) throw new Error(`FinMind HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
-  const body = (await res.json()) as FinMindResponse<T>;
+  const body = (await res.json()) as T;
   if (body.status === QUOTA_EXCEEDED) throw new FinMindQuotaError();
   if (body.status !== 200) throw new Error(`FinMind ${body.status}: ${body.msg}`);
-  return body.data;
+  return body;
+}
+
+async function query<T>(env: Env, params: Record<string, string>): Promise<T[]> {
+  const url = new URL(BASE_URL);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  return (await request<FinMindResponse<T>>(env, url)).data;
+}
+
+export interface FinMindQuota {
+  /** 這一小時已用的請求數 */
+  used: number;
+  /** 每小時上限 */
+  limit: number;
+}
+
+interface UserInfoResponse {
+  status: number;
+  msg: string;
+  user_count: number;
+  api_request_limit: number;
+}
+
+/** 查詢 token 這一小時的請求用量 */
+export async function fetchQuota(env: Env): Promise<FinMindQuota> {
+  const body = await request<UserInfoResponse>(env, new URL(USER_INFO_URL));
+  return { used: body.user_count, limit: body.api_request_limit };
 }
 
 /** 抓 startDate（含）之後的日K，已排除停牌或無成交的空K棒 */

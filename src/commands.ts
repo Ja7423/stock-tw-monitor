@@ -30,6 +30,7 @@ export const COMMAND_GROUPS: CommandGroup[] = [
       { name: "del", menu: "刪除監測 /del 2330", usage: ["/del 2330 — 刪除監測"] },
       { name: "list", menu: "列出監測清單", usage: ["/list — 列出清單與個股設定"] },
       { name: "report", menu: "立即產生報告", usage: ["/report — 立即產生報告"] },
+      { name: "status", menu: "今日排程與 FinMind 額度", usage: ["/status — 今日排程狀態與 FinMind 額度"] },
       { name: "explain", menu: "報告欄位說明", usage: ["/explain — 報告欄位說明"] },
       { name: "settings", menu: "查看全域設定", usage: ["/settings — 查看全域設定"] },
     ],

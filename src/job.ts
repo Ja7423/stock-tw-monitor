@@ -2,7 +2,7 @@ import { analyze } from "./analysis";
 import { resolveConfig } from "./config";
 import {
   getGlobalConfig,
-  getJobStatus,
+  getJobRun,
   getLatestDate,
   getRecentBars,
   listWatchlist,
@@ -75,7 +75,7 @@ export async function runReport(env: Env, now: Date, opts: RunOptions = {}): Pro
   const today = taipeiDate(now);
   const chatId = opts.chatId ?? env.ALLOWED_CHAT_ID;
 
-  if (!opts.force && (await getJobStatus(env.DB, today)) === "sent") return;
+  if (!opts.force && (await getJobRun(env.DB, today))?.status === "sent") return;
 
   try {
     const items = await listWatchlist(env.DB);

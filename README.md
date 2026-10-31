@@ -41,6 +41,7 @@ Telegram ──webhook──► Worker fetch()     ──► D1 (watchlist / set
 /del 2330                         刪除
 /list                             清單
 /report                           立即產生報告
+/status                           今日排程狀態與 FinMind 額度
 /explain                          報告欄位說明
 /settings                         全域設定
 /set range 20                     全域觀察區間

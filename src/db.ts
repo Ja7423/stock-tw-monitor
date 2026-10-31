@@ -131,9 +131,18 @@ export async function pruneBarsBefore(db: D1Database, date: string): Promise<voi
   await db.prepare("DELETE FROM daily_prices WHERE date < ?").bind(date).run();
 }
 
-export async function getJobStatus(db: D1Database, runDate: string): Promise<string | null> {
-  const row = await db.prepare("SELECT status FROM job_runs WHERE run_date = ?").bind(runDate).first<{ status: string }>();
-  return row?.status ?? null;
+export interface JobRun {
+  status: string;
+  detail: string | null;
+  /** UTC，格式 YYYY-MM-DD HH:MM:SS */
+  finishedAt: string;
+}
+
+export async function getJobRun(db: D1Database, runDate: string): Promise<JobRun | null> {
+  return db
+    .prepare("SELECT status, detail, finished_at AS finishedAt FROM job_runs WHERE run_date = ?")
+    .bind(runDate)
+    .first<JobRun>();
 }
 
 export async function setJobRun(db: D1Database, runDate: string, status: string, detail?: string): Promise<void> {

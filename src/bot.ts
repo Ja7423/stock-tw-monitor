@@ -3,6 +3,7 @@ import { STOCK_ID_RE, describeConfig, parseConfigPatch } from "./config";
 import {
   addStock,
   getGlobalConfig,
+  getJobRun,
   hasStock,
   listWatchlist,
   removeStock,
@@ -11,8 +12,9 @@ import {
   setOverride,
 } from "./db";
 import { EXPLAIN } from "./explain";
-import { fetchStockInfo } from "./finmind";
+import { fetchQuota, fetchStockInfo } from "./finmind";
 import { runReport, syncStock, taipeiDate } from "./job";
+import { formatStatus } from "./status";
 import { sendMessage, type TelegramUpdate } from "./telegram";
 import type { Env } from "./types";
 
@@ -97,6 +99,15 @@ async function handleReset(env: Env, args: string[]): Promise<string> {
   return (await resetOverride(env.DB, id)) ? `✅ ${id} 已改回全域設定` : `➖ ${id} 不在清單中`;
 }
 
+async function handleStatus(env: Env): Promise<string> {
+  const today = taipeiDate(new Date());
+  const [run, quota] = await Promise.all([
+    getJobRun(env.DB, today),
+    fetchQuota(env).catch((err: Error) => err),
+  ]);
+  return formatStatus(today, run, quota);
+}
+
 export async function handleUpdate(env: Env, update: TelegramUpdate): Promise<void> {
   const message = update.message;
   if (!message?.text) return;
@@ -133,6 +144,9 @@ export async function handleUpdate(env: Env, update: TelegramUpdate): Promise<vo
         break;
       case "/reset":
         reply = await handleReset(env, args);
+        break;
+      case "/status":
+        reply = await handleStatus(env);
         break;
       case "/explain":
         reply = EXPLAIN;

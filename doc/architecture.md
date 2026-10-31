@@ -10,7 +10,7 @@ flowchart LR
   user["使用者<br/>Telegram App"]
   tg["Telegram Bot API"]
   gh["GitHub Actions<br/>push master 時部署"]
-  fm["FinMind API<br/>TaiwanStockPrice / TaiwanStockInfo"]
+  fm["FinMind API<br/>TaiwanStockPrice / TaiwanStockInfo / user_info"]
 
   subgraph cf["Cloudflare"]
     cron["Cron Triggers<br/>週一至週五 台北 15:00、16:00"]
@@ -61,6 +61,7 @@ flowchart TD
     config["config.ts<br/>參數預設、驗證、合併"]
     explain["explain.ts<br/>/explain 說明文字"]
     commands["commands.ts<br/>指令清單、/help、選單"]
+    status["status.ts<br/>/status 狀態文字"]
   end
 
   subgraph io["外部服務"]
@@ -75,6 +76,7 @@ flowchart TD
   bot --> config
   bot --> explain
   bot --> commands
+  bot --> status
   bot --> db
   bot --> finmind
   bot --> telegram
@@ -170,7 +172,7 @@ sequenceDiagram
   TG->>U: 回覆
 ```
 
-`/report` 走上面的每日報告流程。其他指令（`/list`、`/del`、`/set`、`/override` 等）只讀寫 D1，不會呼叫 FinMind。`/explain`、`/help` 直接回傳固定文字。
+`/report` 走上面的每日報告流程。`/status` 讀 D1 的 `job_runs`，並呼叫 FinMind `user_info` 查詢這一小時的請求用量（這個查詢不算額度）。其他指令（`/list`、`/del`、`/set`、`/override` 等）只讀寫 D1，不會呼叫 FinMind。`/explain`、`/help` 直接回傳固定文字。
 
 ## 安全性設計
 
