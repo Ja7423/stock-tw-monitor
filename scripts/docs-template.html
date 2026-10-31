@@ -1,0 +1,823 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>台股K棒監測文件</title>
+<!-- 由 scripts/build-docs-html.mjs 產生，請勿直接編輯 doc/html/index.html -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* 版面：左側導覽（文件切換、目錄、搜尋）＋右側內容欄；台股慣例紅漲綠跌作為語意色 */
+:root {
+  --paper: #f4f6f9;
+  --surface: #ffffff;
+  --ink: #18202e;
+  --muted: #5a6577;
+  --line: #dbe1ea;
+  --accent: #2b59c3;
+  --accent-soft: #e5ecfa;
+  --up: #cf3029;
+  --up-soft: #fbe9e8;
+  --down: #12834f;
+  --down-soft: #e3f4eb;
+  --chat: #d7e3ee;
+  --bubble: #ffffff;
+  --code-bg: #eef1f6;
+  --mark: #ffe9a8;
+  --font-display: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --radius: 10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f141c; --surface: #161d28; --ink: #e5e9f1; --muted: #98a3b6; --line: #283243;
+    --accent: #7d9ef2; --accent-soft: #1d2942; --up: #ff6a61; --up-soft: #3a1f22; --down: #3cc98a; --down-soft: #16322a;
+    --chat: #0e1621; --bubble: #182533; --code-bg: #1c2433; --mark: #5c4a12;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f141c; --surface: #161d28; --ink: #e5e9f1; --muted: #98a3b6; --line: #283243;
+  --accent: #7d9ef2; --accent-soft: #1d2942; --up: #ff6a61; --up-soft: #3a1f22; --down: #3cc98a; --down-soft: #16322a;
+  --chat: #0e1621; --bubble: #182533; --code-bg: #1c2433; --mark: #5c4a12;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-padding-top: 72px; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 15px/1.75 var(--font-body);
+  -webkit-text-size-adjust: 100%;
+}
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px);
+  z-index: 10; background: var(--surface);
+}
+.topbar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--surface); border-bottom: 1px solid var(--line);
+}
+.topbar-inner {
+  display: flex; align-items: center; gap: 12px; max-width: 1240px; margin: 0 auto;
+  padding-block: 10px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.brand b { font: 700 18px/1.3 var(--font-display); letter-spacing: 0.02em; white-space: nowrap; }
+.brand span { color: var(--muted); font: 12px/1 var(--font-mono); white-space: nowrap; }
+.spacer { flex: 1; }
+.icon-btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink);
+  font: 500 13px/1.4 var(--font-body); cursor: pointer;
+}
+.icon-btn:hover { border-color: var(--accent); }
+
+.layout {
+  display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 40px;
+  max-width: 1240px; margin: 0 auto; padding-block: 28px 80px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.sidebar {
+  position: sticky; top: calc(env(safe-area-inset-top, 0px) + 72px); align-self: start;
+  max-height: calc(100vh - 96px); overflow-y: auto; display: flex; flex-direction: column; gap: 20px;
+  padding-bottom: 12px;
+}
+.label {
+  font: 500 11px/1.4 var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+  margin: 0 0 6px;
+}
+.views { display: flex; flex-direction: column; gap: 2px; }
+.views a {
+  display: block; padding: 7px 10px; border-radius: 8px; color: var(--ink); text-decoration: none; font-weight: 500;
+}
+.views a:hover { background: var(--accent-soft); }
+.views a[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
+.search input {
+  width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); color: var(--ink); font: 14px/1.4 var(--font-body);
+}
+.results { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.results button {
+  width: 100%; text-align: left; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); color: var(--ink); cursor: pointer; font: 13px/1.5 var(--font-body);
+}
+.results button:hover { border-color: var(--accent); }
+.results .where { display: block; color: var(--accent); font-weight: 500; }
+.results .snip { display: block; color: var(--muted); overflow-wrap: anywhere; }
+.results .none { color: var(--muted); font-size: 13px; padding: 4px 2px; }
+mark { background: var(--mark); color: inherit; border-radius: 2px; }
+.toc ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.toc a { display: block; padding: 3px 10px; color: var(--muted); text-decoration: none; font-size: 13px; line-height: 1.5; border-left: 2px solid transparent; }
+.toc a:hover { color: var(--ink); border-left-color: var(--line); }
+.toc .h3 a { padding-left: 22px; font-size: 12.5px; }
+.toc details > summary { cursor: pointer; list-style: none; }
+.toc details > summary::-webkit-details-marker { display: none; }
+
+main { min-width: 0; }
+
+/* ---------- 文件內容 ---------- */
+.doc { max-width: 76ch; }
+.doc h1 { font: 700 34px/1.3 var(--font-display); margin: 0 0 18px; text-wrap: balance; letter-spacing: 0.01em; }
+.doc h2 {
+  font: 700 23px/1.4 var(--font-display); margin: 48px 0 12px; padding-top: 18px;
+  border-top: 1px solid var(--line); text-wrap: balance;
+}
+.doc h3 { font: 700 17px/1.5 var(--font-body); margin: 30px 0 8px; text-wrap: balance; }
+.doc p, .doc ul, .doc ol { margin: 0 0 14px; }
+.doc li + li { margin-top: 4px; }
+.doc blockquote {
+  margin: 0 0 16px; padding: 10px 16px; background: var(--accent-soft); border-radius: var(--radius); color: var(--ink);
+}
+.doc blockquote p:last-child { margin: 0; }
+.doc code {
+  font: 0.88em/1.5 var(--font-mono); background: var(--code-bg); padding: 1px 5px; border-radius: 4px;
+  overflow-wrap: anywhere;
+}
+.doc pre {
+  background: var(--code-bg); border-radius: var(--radius); padding: 14px 16px; overflow-x: auto; margin: 0 0 16px;
+  font: 13px/1.65 var(--font-mono);
+}
+.doc pre code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+.table-wrap { overflow-x: auto; margin: 0 0 18px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.doc table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.doc th, .doc td { padding: 8px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+.doc tr:last-child td { border-bottom: none; }
+.doc th { font-weight: 700; background: var(--code-bg); white-space: nowrap; }
+.mermaid-wrap {
+  overflow-x: auto; margin: 0 0 18px; padding: 16px; background: var(--surface);
+  border: 1px solid var(--line); border-radius: var(--radius);
+}
+.doc pre.mermaid { background: none; padding: 0; margin: 0; text-align: center; font-family: var(--font-body); }
+.mermaid-wrap svg { max-width: 100%; height: auto; }
+.mermaid-error { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+.flash { animation: flash 1.6s ease-out; }
+@keyframes flash { from { background: var(--mark); } to { background: transparent; } }
+.load-error { padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+
+/* ---------- 互動報告解說 ---------- */
+.explorer h1 { font: 700 34px/1.3 var(--font-display); margin: 0 0 8px; text-wrap: balance; }
+.lede { color: var(--muted); max-width: 64ch; margin: 0 0 24px; }
+.split { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.chat {
+  background: var(--chat); border-radius: 14px; padding: 18px; min-width: 0;
+}
+.chat-meta { font: 12px/1.4 var(--font-mono); color: var(--muted); margin: 0 0 8px 4px; }
+.bubble {
+  background: var(--bubble); border-radius: 4px 14px 14px 14px; padding: 12px 14px;
+  font: 14px/1.85 var(--font-body); box-shadow: 0 1px 1px rgba(0, 0, 0, 0.08); overflow-x: auto;
+}
+.ln { white-space: pre; }
+.ln.i1 { padding-left: 1.2em; }
+.ln.i2 { padding-left: 2.4em; }
+.ln.sep { color: var(--muted); letter-spacing: -0.05em; user-select: none; }
+.seg {
+  font: inherit; color: inherit; background: none; border: none; padding: 0 2px; margin: 0 -2px;
+  border-radius: 4px; cursor: pointer; text-decoration: underline dotted var(--muted); text-underline-offset: 4px;
+}
+.seg:hover { background: var(--accent-soft); }
+.seg[aria-pressed="true"] { background: var(--accent); color: var(--surface); text-decoration: none; }
+.hint { font-size: 13px; color: var(--muted); margin: 10px 4px 0; }
+
+.panel {
+  position: sticky; top: calc(env(safe-area-inset-top, 0px) + 72px);
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; min-width: 0;
+}
+.panel h2 { font: 700 21px/1.4 var(--font-display); margin: 0 0 12px; }
+.formula {
+  font: 13px/1.7 var(--font-mono); background: var(--code-bg); padding: 10px 12px; border-radius: 8px; margin: 0 0 14px;
+  overflow-wrap: anywhere;
+}
+.example { margin: 0 0 12px; }
+.example b { color: var(--accent); font-weight: 500; }
+.panel ul { margin: 0 0 14px; padding-left: 1.2em; }
+.panel li + li { margin-top: 4px; }
+.link-btn {
+  background: none; border: none; padding: 0; color: var(--accent); font: 500 14px/1.5 var(--font-body); cursor: pointer;
+}
+.link-btn:hover { text-decoration: underline; }
+
+.tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 36px; }
+.tool { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; min-width: 0; }
+.tool h2 { font: 700 19px/1.4 var(--font-display); margin: 0 0 4px; }
+.tool > p { color: var(--muted); font-size: 13.5px; margin: 0 0 16px; }
+.fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+.fields label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); min-width: 0; }
+.fields input {
+  width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink);
+  font: 15px/1.4 var(--font-mono); font-variant-numeric: tabular-nums;
+}
+.gauge { position: relative; height: 10px; border-radius: 999px; background: linear-gradient(90deg, var(--down-soft), var(--up-soft)); border: 1px solid var(--line); margin: 30px 0 6px; }
+.gauge .pin {
+  position: absolute; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%;
+  background: var(--accent); border: 3px solid var(--surface); box-shadow: 0 0 0 1px var(--accent); transition: left 0.2s;
+}
+.gauge .pin-label {
+  position: absolute; bottom: 18px; transform: translateX(-50%); font: 500 13px/1 var(--font-mono); color: var(--accent);
+  white-space: nowrap; transition: left 0.2s;
+}
+.gauge-ends { display: flex; justify-content: space-between; font: 12px/1.4 var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.result { margin: 14px 0 0; font-size: 14px; }
+.result .big { font: 700 26px/1.2 var(--font-mono); font-variant-numeric: tabular-nums; }
+.warn { color: var(--up); }
+
+.votes { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.vote { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; font-size: 14px; }
+.seg3 { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg3 label { position: relative; }
+.seg3 input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.seg3 span { display: block; padding: 4px 10px; font-size: 13px; color: var(--muted); border-left: 1px solid var(--line); }
+.seg3 label:first-child span { border-left: none; }
+.seg3 input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -2px; }
+.seg3 input[value="1"]:checked + span { background: var(--up-soft); color: var(--up); font-weight: 700; }
+.seg3 input[value="0"]:checked + span { background: var(--code-bg); color: var(--ink); font-weight: 700; }
+.seg3 input[value="-1"]:checked + span { background: var(--down-soft); color: var(--down); font-weight: 700; }
+.chip { display: inline-block; padding: 2px 10px; border-radius: 999px; font-weight: 700; font-size: 14px; }
+.chip.up { background: var(--up-soft); color: var(--up); }
+.chip.down { background: var(--down-soft); color: var(--down); }
+.chip.flat { background: var(--code-bg); color: var(--ink); }
+.legend { font-size: 12.5px; color: var(--muted); margin: 12px 0 0; }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 20px; padding-block: 16px 64px; }
+  .sidebar { position: static; max-height: none; overflow: visible; gap: 14px; }
+  .views { flex-direction: row; flex-wrap: wrap; gap: 6px; }
+  .views a { border: 1px solid var(--line); background: var(--surface); padding: 5px 12px; border-radius: 999px; font-size: 14px; }
+  .split, .tools { grid-template-columns: minmax(0, 1fr); }
+  .panel { position: static; }
+  .doc h1, .explorer h1 { font-size: 27px; }
+  .brand span { display: none; }
+}
+@media (max-width: 480px) {
+  .fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .fields label:last-child { grid-column: 1 / -1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><b>台股K棒監測</b><span>tw-stock-monitor docs</span></div>
+    <div class="spacer"></div>
+    <button class="icon-btn" id="theme-toggle" type="button" aria-label="切換深淺色">
+      <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5a6.5 6.5 0 0 1 0 13z" fill="currentColor"/></svg>
+      <span id="theme-label">深色</span>
+    </button>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="sidebar" aria-label="文件導覽">
+    <div>
+      <p class="label">文件</p>
+      <div class="views" id="views"></div>
+    </div>
+    <div class="search">
+      <p class="label"><label for="search-input">搜尋</label></p>
+      <input id="search-input" type="search" placeholder="例如：位階、webhook、/set" autocomplete="off">
+      <ul class="results" id="results" hidden></ul>
+    </div>
+    <div class="toc" id="toc"></div>
+  </nav>
+
+  <main id="main">
+    <section class="explorer" id="view-explorer" data-view="explorer" hidden>
+      <h1>看懂每日報告</h1>
+      <p class="lede">點範例報告裡任何一段文字，右邊會說明它的意思、怎麼算出來，以及範例中的數字代表什麼。下方有位階計算器和趨勢投票模擬，可以自己代數字試試。</p>
+
+      <div class="split">
+        <div class="chat">
+          <p class="chat-meta">範例報告（數字僅為示意）</p>
+          <div class="bubble" role="group" aria-label="範例報告">
+            <div class="ln"><button class="seg" type="button" data-k="header">📊 台股監測 2026-10-30（預設區間 10 日）</button></div>
+            <div class="ln"><button class="seg" type="button" data-k="counts">偏多 1｜偏空 0｜盤整 1</button></div>
+            <div class="ln sep" aria-hidden="true">━━━━━━━━━━</div>
+            <div class="ln"><button class="seg" type="button" data-k="price">2330 台積電  1,050 (+1.4%)</button></div>
+            <div class="ln i1"><button class="seg" type="button" data-k="trend">⬆️ 偏多</button>｜<button class="seg" type="button" data-k="range">10日 +4.5% (+45)</button>｜<button class="seg" type="button" data-k="votes">多4/空0</button></div>
+            <div class="ln i1"><button class="seg" type="button" data-k="slope">斜率 +0.42%/日</button> <button class="seg" type="button" data-k="r2">R² 0.81</button>｜<button class="seg" type="button" data-k="candles">7紅3黑0平</button>｜<button class="seg" type="button" data-k="structure">高低點墊高</button></div>
+            <div class="ln i1"><button class="seg" type="button" data-k="ma">均線乖離率</button></div>
+            <div class="ln i2"><button class="seg" type="button" data-k="ma" data-p="5" data-d="1.2">MA5 +1.2% ✅</button></div>
+            <div class="ln i2"><button class="seg" type="button" data-k="ma" data-p="10" data-d="2.5">MA10 +2.5% ✅</button></div>
+            <div class="ln i2"><button class="seg" type="button" data-k="ma" data-p="20" data-d="3.8">MA20 +3.8% ✅</button></div>
+            <div class="ln i2"><button class="seg" type="button" data-k="ma" data-p="60" data-d="6.1">MA60 +6.1% ✅</button></div>
+            <div class="ln i2"><button class="seg" type="button" data-k="ma" data-p="120" data-d="9.4">MA120 +9.4% ✅</button></div>
+            <div class="ln i2"><button class="seg" type="button" data-k="ma" data-p="240" data-d="18.2">MA240 +18.2% ✅</button></div>
+            <div class="ln i1"><button class="seg" type="button" data-k="align">多頭排列</button></div>
+            <div class="ln i1"><button class="seg" type="button" data-k="cross">🔔 站上 MA5</button></div>
+            <div class="ln i1"><button class="seg" type="button" data-k="pos">位階 120日 92%</button>｜<button class="seg" type="button" data-k="w52">52週 距高 -1.9% 距低 +48.6%</button></div>
+          </div>
+          <p class="hint">有虛線底線的文字都可以點。也可以用 Tab 鍵移動、Enter 選取。</p>
+        </div>
+
+        <aside class="panel" id="panel" aria-live="polite">
+          <h2 id="panel-title"></h2>
+          <div class="formula" id="panel-formula"></div>
+          <p class="example" id="panel-example"></p>
+          <ul id="panel-points"></ul>
+          <button class="link-btn" id="panel-ref" type="button">看完整說明 →</button>
+        </aside>
+      </div>
+
+      <div class="tools">
+        <section class="tool" aria-labelledby="pos-title">
+          <h2 id="pos-title">位階計算器</h2>
+          <p>輸入區間最高價、最低價和收盤價，看收盤落在區間的哪個位置。</p>
+          <div class="fields">
+            <label for="pos-low">區間最低<input id="pos-low" type="number" inputmode="decimal" step="any" value="800"></label>
+            <label for="pos-high">區間最高<input id="pos-high" type="number" inputmode="decimal" step="any" value="1100"></label>
+            <label for="pos-close">收盤價<input id="pos-close" type="number" inputmode="decimal" step="any" value="1076"></label>
+          </div>
+          <div class="gauge" aria-hidden="true"><span class="pin-label" id="pos-pin-label"></span><span class="pin" id="pos-pin"></span></div>
+          <div class="gauge-ends"><span id="pos-end-low"></span><span id="pos-end-high"></span></div>
+          <p class="result" id="pos-result"></p>
+        </section>
+
+        <section class="tool" aria-labelledby="vote-title">
+          <h2 id="vote-title">趨勢投票模擬</h2>
+          <p>每項指標可以投多、不表態或空。至少三票同方向才判定偏多或偏空。</p>
+          <div class="votes" id="votes"></div>
+          <p class="result" id="vote-result"></p>
+          <p class="legend">顏色依台股慣例：紅色代表多（漲），綠色代表空（跌）。</p>
+        </section>
+      </div>
+    </section>
+
+    <div id="doc-views"></div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<script>
+const DOCS = __DOCS_JSON__;
+
+// ---------- 互動報告解說資料 ----------
+const EXPLAIN = {
+  header: {
+    title: "報告標頭",
+    formula: "日期 = 產生報告當天的台北日期\n預設區間 = 全域設定的 range",
+    example: "這份報告在 <b>2026-10-30</b> 產生，全域觀察區間是 <b>10 日</b>。",
+    points: ["有個股覆寫的股票會用自己的區間，看各股第二行的天數", "用 /set range 20 修改預設區間"],
+    ref: ["metrics", "報告標頭"],
+  },
+  counts: {
+    title: "趨勢統計",
+    formula: "各趨勢判定結果的股票檔數",
+    example: "這份報告有 2 檔：<b>1 檔偏多</b>、<b>1 檔盤整</b>，沒有偏空。",
+    points: ["顯示「資料不足」的股票不算在內"],
+    ref: ["metrics", "報告標頭"],
+  },
+  price: {
+    title: "收盤價與當日漲跌",
+    formula: "當日漲跌 = (最新收盤 − 前一根收盤) ÷ 前一根收盤",
+    example: "收盤 <b>1,050</b>，前一天收盤約 1,035.5，漲了約 14.5 元，也就是 <b>+1.4%</b>。",
+    points: ["和前一天收盤比，跟一般看盤軟體的漲跌幅相同", "後面出現 [資料日 …] 代表這檔還沒有今天的資料，顯示的是最近一個交易日"],
+    ref: ["metrics", "第一行"],
+  },
+  trend: {
+    title: "趨勢判定",
+    formula: "多 ≥ 3 → ⬆️ 偏多\n空 ≥ 3 → ⬇️ 偏空\n其他 → ↔️ 盤整",
+    example: "四項指標都投多（<b>多4/空0</b>），所以判定為<b>偏多</b>。",
+    points: ["四項指標裡至少三項同方向才算有趨勢", "同樣是盤整，多2/空1 偏多、多1/空2 偏空，要看票數才知道", "下方的趨勢投票模擬可以試各種組合"],
+    ref: ["metrics", "判定結果"],
+  },
+  range: {
+    title: "區間漲跌",
+    formula: "(區間最後一根收盤 − 區間第一根開盤) ÷ 區間第一根開盤",
+    example: "區間第一根開盤約 <b>1,005</b>，最後收盤 1,050，漲了 <b>45 元</b>，也就是 <b>+4.5%</b>。",
+    points: ["「10日」是區間實際用到的 K 棒數，新上市股票可能少於設定值", "只看首尾兩個價格，中間怎麼走要搭配 R² 和高低點結構看", "起點用開盤價，是為了把區間第一天本身的漲跌也算進來"],
+    ref: ["metrics", "區間漲跌"],
+  },
+  votes: {
+    title: "多空投票",
+    formula: "區間漲跌、迴歸斜率、紅黑K、高低點結構\n各投一票：多 / 空 / 不表態",
+    example: "漲跌 +4.5%、斜率為正、紅K 7 根多於黑K 3 根、高低點墊高，<b>四票都投多</b>。",
+    points: ["不表態的票兩邊都不算，所以多和空加起來可能小於 4", "票數越集中，四個角度的看法越一致", "多3/空1 時可以看是哪一項不同調"],
+    ref: ["metrics", "多空投票"],
+  },
+  slope: {
+    title: "迴歸斜率",
+    formula: "對區間收盤價做線性迴歸（x 是第幾根）\n斜率 %/日 = 迴歸斜率 ÷ 區間平均收盤 × 100%",
+    example: "照迴歸直線，平均每根 K 棒漲 <b>0.42%</b>，10 根大約是 4% 左右的速度。",
+    points: ["除以平均價，不同價位的股票可以直接比較", "斜率說明方向和速度，要和 R² 一起看可不可信"],
+    ref: ["metrics", "斜率與 R²"],
+  },
+  r2: {
+    title: "R²（貼合度）",
+    formula: "收盤價與時間的相關係數平方，範圍 0～1",
+    example: "<b>0.81</b> 代表價格相當貼近迴歸直線，這段上漲走得很穩。",
+    points: ["約 0.7 以上：走勢接近一直線，趨勢穩定", "約 0.3 以下：過程震盪，斜率可能只是被幾天大漲大跌拉出來的", "區間收盤價全部一樣時固定為 0"],
+    ref: ["metrics", "斜率與 R²"],
+  },
+  candles: {
+    title: "紅黑 K",
+    formula: "紅K：收盤 > 開盤\n黑K：收盤 < 開盤\n平：收盤 = 開盤",
+    example: "區間 10 根裡，<b>7 根</b>收盤高於當天開盤，<b>3 根</b>低於開盤。",
+    points: ["和「當天開盤」比，不是和前一天收盤比", "跳空開高後走低，即使比前一天漲也算黑K", "區間上漲但黑K比較多，漲幅可能主要來自跳空"],
+    ref: ["metrics", "紅黑 K"],
+  },
+  structure: {
+    title: "高低點結構",
+    formula: "區間切成前後兩半，比較兩半的最高價與最低價",
+    example: "後半段的最高價和最低價都比前半段高，屬於<b>高低點墊高</b>。",
+    points: ["墊高：高點、低點都上移，上漲結構完整", "下移：高點、低點都下降，下跌結構完整", "交錯：其他情況，可能是震盪擴大，也可能是收斂整理"],
+    ref: ["metrics", "高低點結構"],
+  },
+  ma: {
+    title: "均線乖離率",
+    formula: "MA N = 最近 N 根收盤價的簡單平均\n乖離 = (最新收盤 − MA) ÷ MA × 100%",
+    example: "六條均線都是 ✅，收盤價在所有均線之上。點單一條均線可以看它的數值。",
+    points: ["✅ 收盤在均線之上或剛好相等，❌ 在均線之下", "顯示 — 代表歷史 K 棒不夠計算這條均線", "乖離大小要和同一條均線的歷史比，不能跨週期直接比大小"],
+    ref: ["metrics", "每條均線"],
+  },
+  align: {
+    title: "均線排列",
+    formula: "依週期由短到長，逐一比較相鄰兩條均線",
+    example: "MA5 > MA10 > MA20 > MA60 > MA120 > MA240，每一條短均線都在下一條之上，所以是<b>多頭排列</b>。",
+    points: ["多頭排列：短均線都在長均線之上", "空頭排列：短均線都在長均線之下", "其他為均線糾結；顯示 — 的均線不參與比較"],
+    ref: ["metrics", "排列狀態"],
+  },
+  cross: {
+    title: "站上 / 跌破均線",
+    formula: "站上：前一根收盤 ≤ 前一根 MA，且最新收盤 > 最新 MA\n跌破：前一根收盤 ≥ 前一根 MA，且最新收盤 < 最新 MA",
+    example: "前一天收盤在 MA5 之下或剛好相等，<b>今天收回 MA5 之上</b>。",
+    points: ["短均線（MA5、MA10）在價格來回時常反覆出現", "長均線（MA60 以上）的訊號比較少見，也比較值得注意", "沒有任何訊號時不顯示這一行"],
+    ref: ["metrics", "🔔 站上"],
+  },
+  pos: {
+    title: "位階",
+    formula: "(最新收盤 − 區間最低) ÷ (區間最高 − 區間最低) × 100%",
+    example: "在最近 120 根 K 棒的最高、最低價之間，收盤位在 <b>92%</b> 的位置，接近區間高點。",
+    points: ["0% 收在最低點，100% 收在最高點", "不是「贏過 92% 的交易日」，只看最高、最低兩個點", "天數由 pct 設定；下方計算器可以自己代數字"],
+    ref: ["metrics", "位階："],
+  },
+  w52: {
+    title: "52 週距高低",
+    formula: "距高 = (收盤 − 250 根最高價) ÷ 最高價\n距低 = (收盤 − 250 根最低價) ÷ 最低價",
+    example: "一年內最高約 <b>1,070</b>、最低約 <b>707</b>。收盤離高點 1.9%，比低點高 48.6%。",
+    points: ["距高接近 0%：接近一年新高", "跌 30% 後要漲約 43% 才回得到高點", "不足 250 根時會顯示 52週(僅N日)"],
+    ref: ["metrics", "52 週："],
+  },
+};
+
+const VOTE_ITEMS = [
+  ["區間漲跌", "漲跌 % 大於 0 投多，小於 0 投空"],
+  ["迴歸斜率", "斜率大於 0 投多，小於 0 投空"],
+  ["紅黑 K", "紅 K 較多投多，黑 K 較多投空"],
+  ["高低點結構", "墊高投多，下移投空，交錯不表態"],
+];
+
+// ---------- 工具函式 ----------
+const $ = (sel, root = document) => root.querySelector(sel);
+const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const priceFmt = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { /* 無法儲存時忽略 */ } },
+};
+
+const VIEWS = [{ key: "explorer", title: "互動報告解說" }, ...DOCS.map((d) => ({ key: d.key, title: d.title }))];
+const FILE_TO_KEY = Object.fromEntries(DOCS.map((d) => [d.file.split("/").pop(), d.key]));
+const sections = []; // 搜尋索引：{ key, id, heading, text }
+
+// ---------- 主題 ----------
+const media = matchMedia("(prefers-color-scheme: dark)");
+function currentTheme() {
+  return document.documentElement.dataset.theme || (media.matches ? "dark" : "light");
+}
+function updateThemeLabel() {
+  $("#theme-label").textContent = currentTheme() === "dark" ? "淺色" : "深色";
+}
+const savedTheme = store.get("docs-theme");
+if (savedTheme === "dark" || savedTheme === "light") document.documentElement.dataset.theme = savedTheme;
+updateThemeLabel();
+$("#theme-toggle").addEventListener("click", () => {
+  const next = currentTheme() === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  store.set("docs-theme", next);
+  updateThemeLabel();
+  rerenderMermaid();
+});
+media.addEventListener("change", () => {
+  if (document.documentElement.dataset.theme) return;
+  updateThemeLabel();
+  rerenderMermaid();
+});
+
+// ---------- Mermaid ----------
+const hasMermaid = typeof window.mermaid !== "undefined";
+function initMermaid() {
+  if (!hasMermaid) return;
+  mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: "strict",
+    theme: currentTheme() === "dark" ? "dark" : "default",
+    fontFamily: getComputedStyle(document.body).fontFamily,
+  });
+}
+async function renderMermaidIn(root) {
+  const nodes = [...root.querySelectorAll("pre.mermaid:not([data-processed])")];
+  if (!nodes.length) return;
+  if (!hasMermaid) {
+    nodes.forEach((n) => {
+      n.dataset.processed = "true";
+      n.insertAdjacentHTML("afterend", '<p class="mermaid-error">無法載入 Mermaid，上面顯示的是圖的原始碼。</p>');
+    });
+    return;
+  }
+  for (const node of nodes) {
+    try {
+      await mermaid.run({ nodes: [node] });
+    } catch (err) {
+      node.dataset.processed = "true";
+      node.textContent = node.dataset.src;
+      node.insertAdjacentHTML("afterend", `<p class="mermaid-error">這張圖的語法有誤，顯示原始碼：${esc(String(err && err.message || err))}</p>`);
+    }
+  }
+}
+function rerenderMermaid() {
+  if (!hasMermaid) return;
+  initMermaid();
+  document.querySelectorAll("pre.mermaid").forEach((n) => {
+    n.removeAttribute("data-processed");
+    n.textContent = n.dataset.src;
+    const next = n.nextElementSibling;
+    if (next && next.classList.contains("mermaid-error")) next.remove();
+  });
+  const visible = document.querySelector("[data-view]:not([hidden])");
+  if (visible) renderMermaidIn(visible);
+}
+
+// ---------- Markdown 文件 ----------
+function renderDocs() {
+  const host = $("#doc-views");
+  for (const doc of DOCS) {
+    const section = document.createElement("article");
+    section.className = "doc";
+    section.id = `view-${doc.key}`;
+    section.dataset.view = doc.key;
+    section.hidden = true;
+    if (typeof window.marked === "undefined") {
+      section.innerHTML = `<p class="load-error">無法載入 Markdown 轉換器（可能沒有網路），以下顯示原始內容。</p><pre>${esc(doc.md)}</pre>`;
+      host.appendChild(section);
+      continue;
+    }
+    section.innerHTML = marked.parse(doc.md, { gfm: true });
+
+    // 圖表：```mermaid → <pre class="mermaid">
+    section.querySelectorAll("pre > code.language-mermaid").forEach((code) => {
+      const wrap = document.createElement("div");
+      wrap.className = "mermaid-wrap";
+      const pre = document.createElement("pre");
+      pre.className = "mermaid";
+      pre.dataset.src = code.textContent;
+      pre.textContent = code.textContent;
+      wrap.appendChild(pre);
+      code.parentElement.replaceWith(wrap);
+    });
+
+    // 表格包一層，窄螢幕可以橫向捲動
+    section.querySelectorAll("table").forEach((t) => {
+      const wrap = document.createElement("div");
+      wrap.className = "table-wrap";
+      t.replaceWith(wrap);
+      wrap.appendChild(t);
+    });
+
+    // 文件之間的相對連結改成頁內切換
+    section.querySelectorAll("a[href]").forEach((a) => {
+      const href = a.getAttribute("href");
+      if (/^https?:/.test(href)) {
+        a.target = "_blank";
+        a.rel = "noopener";
+        return;
+      }
+      const key = FILE_TO_KEY[href.split("#")[0].split("/").pop()];
+      if (key) a.setAttribute("href", `#${key}`);
+    });
+
+    // 標題 id 與搜尋索引
+    let current = { key: doc.key, id: `${doc.key}`, heading: doc.title, text: "" };
+    sections.push(current);
+    let n = 0;
+    for (const el of section.children) {
+      if (/^H[23]$/.test(el.tagName)) {
+        el.id = `${doc.key}-${++n}`;
+        current = { key: doc.key, id: el.id, heading: el.textContent, text: "" };
+        sections.push(current);
+      } else if (!el.classList.contains("mermaid-wrap")) {
+        current.text += " " + el.textContent.replace(/\s+/g, " ");
+      }
+    }
+    host.appendChild(section);
+  }
+}
+
+function buildToc(key) {
+  const toc = $("#toc");
+  const section = document.getElementById(`view-${key}`);
+  const heads = section && section.classList.contains("doc") ? [...section.querySelectorAll("h2[id], h3[id]")] : [];
+  if (!heads.length) { toc.innerHTML = ""; return; }
+  const items = heads
+    .map((h) => `<li class="${h.tagName.toLowerCase()}"><a href="#${h.id}">${esc(h.textContent)}</a></li>`)
+    .join("");
+  const narrow = matchMedia("(max-width: 900px)").matches;
+  toc.innerHTML = narrow
+    ? `<details><summary class="label">本頁目錄 ▾</summary><ol>${items}</ol></details>`
+    : `<p class="label">本頁目錄</p><ol>${items}</ol>`;
+}
+
+// ---------- 路由 ----------
+function renderViewsNav(active) {
+  $("#views").innerHTML = VIEWS.map(
+    (v) => `<a href="#${v.key}"${v.key === active ? ' aria-current="page"' : ""}>${esc(v.title)}</a>`,
+  ).join("");
+}
+let activeView = null;
+function showView(key) {
+  if (activeView !== key) {
+    document.querySelectorAll("[data-view]").forEach((el) => { el.hidden = el.dataset.view !== key; });
+    activeView = key;
+    renderViewsNav(key);
+    buildToc(key);
+    const view = document.getElementById(`view-${key}`);
+    if (view) renderMermaidIn(view);
+  }
+}
+function route() {
+  const hash = decodeURIComponent(location.hash.slice(1));
+  if (VIEWS.some((v) => v.key === hash)) {
+    showView(hash);
+    window.scrollTo(0, 0);
+    return;
+  }
+  const m = /^([a-z]+)-\d+$/.exec(hash);
+  if (m && VIEWS.some((v) => v.key === m[1])) {
+    showView(m[1]);
+    const target = document.getElementById(hash);
+    if (target) {
+      target.scrollIntoView();
+      target.classList.remove("flash");
+      void target.offsetWidth;
+      target.classList.add("flash");
+    }
+    return;
+  }
+  showView("explorer");
+}
+function goToHeading(key, prefix) {
+  const view = document.getElementById(`view-${key}`);
+  const head = view && [...view.querySelectorAll("h2[id], h3[id]")].find((h) => h.textContent.startsWith(prefix));
+  const target = head ? head.id : key;
+  if (location.hash.slice(1) === target) route();
+  else location.hash = target;
+}
+
+// ---------- 搜尋 ----------
+function snippet(text, q) {
+  const i = text.toLowerCase().indexOf(q.toLowerCase());
+  if (i < 0) return esc(text.slice(0, 60));
+  const start = Math.max(0, i - 20);
+  const raw = text.slice(start, i + q.length + 40);
+  const j = i - start;
+  return (start > 0 ? "…" : "") + esc(raw.slice(0, j)) + "<mark>" + esc(raw.slice(j, j + q.length)) + "</mark>" + esc(raw.slice(j + q.length)) + "…";
+}
+$("#search-input").addEventListener("input", (e) => {
+  const q = e.target.value.trim();
+  const list = $("#results");
+  if (!q) { list.hidden = true; list.innerHTML = ""; return; }
+  const lower = q.toLowerCase();
+  const hits = sections
+    .filter((s) => s.heading.toLowerCase().includes(lower) || s.text.toLowerCase().includes(lower))
+    .slice(0, 20);
+  const titleOf = Object.fromEntries(VIEWS.map((v) => [v.key, v.title]));
+  list.innerHTML = hits.length
+    ? hits.map((s) => `<li><button type="button" data-id="${s.id}"><span class="where">${esc(titleOf[s.key])} › ${esc(s.heading)}</span><span class="snip">${snippet(s.heading.toLowerCase().includes(lower) ? s.heading + " " + s.text : s.text, q)}</span></button></li>`).join("")
+    : `<li class="none">找不到「${esc(q)}」</li>`;
+  list.hidden = false;
+});
+$("#results").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-id]");
+  if (!btn) return;
+  if (location.hash.slice(1) === btn.dataset.id) route();
+  else location.hash = btn.dataset.id;
+});
+
+// ---------- 互動報告解說 ----------
+let selectedRef = null;
+function select(btn) {
+  document.querySelectorAll(".seg[aria-pressed]").forEach((b) => b.setAttribute("aria-pressed", "false"));
+  btn.setAttribute("aria-pressed", "true");
+  const info = EXPLAIN[btn.dataset.k];
+  let title = info.title;
+  let example = info.example;
+  if (btn.dataset.p) {
+    const p = btn.dataset.p;
+    const d = Number(btn.dataset.d);
+    const maValue = 1050 / (1 + d / 100);
+    title = `MA${p} 乖離率`;
+    example = `MA${p} 是最近 ${p} 根收盤的平均，約 <b>${priceFmt.format(maValue)}</b>。收盤 1,050 比它高 <b>${d}%</b>，所以是 ✅。`;
+  }
+  $("#panel-title").textContent = title;
+  $("#panel-formula").innerHTML = esc(info.formula).replace(/\n/g, "<br>");
+  $("#panel-example").innerHTML = example;
+  $("#panel-points").innerHTML = info.points.map((p) => `<li>${esc(p)}</li>`).join("");
+  selectedRef = info.ref;
+}
+document.querySelectorAll(".seg").forEach((b) => {
+  b.setAttribute("aria-pressed", "false");
+  b.addEventListener("click", () => select(b));
+});
+$("#panel-ref").addEventListener("click", () => selectedRef && goToHeading(...selectedRef));
+select(document.querySelector('.seg[data-k="trend"]'));
+
+// 位階計算器
+function updatePosition() {
+  const low = parseFloat($("#pos-low").value);
+  const high = parseFloat($("#pos-high").value);
+  const close = parseFloat($("#pos-close").value);
+  const out = $("#pos-result");
+  $("#pos-end-low").textContent = Number.isFinite(low) ? `最低 ${priceFmt.format(low)}` : "";
+  $("#pos-end-high").textContent = Number.isFinite(high) ? `最高 ${priceFmt.format(high)}` : "";
+  if (![low, high, close].every(Number.isFinite)) {
+    out.innerHTML = '<span class="warn">三個欄位都要填數字。</span>';
+    return;
+  }
+  if (high < low) {
+    out.innerHTML = '<span class="warn">區間最高要大於或等於區間最低。</span>';
+    return;
+  }
+  const pct = high === low ? 50 : ((close - low) / (high - low)) * 100;
+  const clamped = Math.min(100, Math.max(0, pct));
+  $("#pos-pin").style.left = `${clamped}%`;
+  const label = $("#pos-pin-label");
+  label.style.left = `${clamped}%`;
+  label.textContent = `${pct.toFixed(0)}%`;
+  let note;
+  if (high === low) note = "最高等於最低時，程式固定顯示 50%。";
+  else if (pct > 100 || pct < 0) note = '<span class="warn">收盤超出了區間。實際報告不會發生，因為區間包含今天的最高價和最低價。</span>';
+  else if (pct >= 80) note = "收在區間高點附近。";
+  else if (pct <= 20) note = "收在區間低點附近。";
+  else note = "在區間中段。";
+  out.innerHTML = `<span class="big">${pct.toFixed(0)}%</span><br>收盤比最低高 ${priceFmt.format(close - low)}，整段區間寬 ${priceFmt.format(high - low)}。${note}`;
+}
+["#pos-low", "#pos-high", "#pos-close"].forEach((id) => $(id).addEventListener("input", updatePosition));
+updatePosition();
+
+// 趨勢投票模擬
+$("#votes").innerHTML = VOTE_ITEMS.map(([name, desc], i) => `
+  <div class="vote">
+    <span title="${esc(desc)}">${esc(name)}</span>
+    <span class="seg3" role="radiogroup" aria-label="${esc(name)}">
+      <label><input type="radio" name="v${i}" id="v${i}-up" value="1" checked><span>多</span></label>
+      <label><input type="radio" name="v${i}" id="v${i}-none" value="0"><span>不表態</span></label>
+      <label><input type="radio" name="v${i}" id="v${i}-down" value="-1"><span>空</span></label>
+    </span>
+  </div>`).join("");
+function updateVotes() {
+  const vals = VOTE_ITEMS.map((_, i) => Number(document.querySelector(`input[name="v${i}"]:checked`).value));
+  const up = vals.filter((v) => v > 0).length;
+  const down = vals.filter((v) => v < 0).length;
+  const [cls, text] = up >= 3 ? ["up", "⬆️ 偏多"] : down >= 3 ? ["down", "⬇️ 偏空"] : ["flat", "↔️ 盤整"];
+  let note = "";
+  if (cls === "flat") {
+    if (up > down) note = "方向偏多，但不到三票。";
+    else if (down > up) note = "方向偏空，但不到三票。";
+    else note = "多空票數相同，方向分歧或訊號太弱。";
+  } else if (up + down < 4 || (up && down)) {
+    note = "判定成立，但不是四項全部同方向。";
+  } else {
+    note = "四項指標全部同方向，趨勢最一致。";
+  }
+  $("#vote-result").innerHTML = `<span class="big">多${up}/空${down}</span> → <span class="chip ${cls}">${text}</span><br>${note}`;
+}
+$("#votes").addEventListener("change", updateVotes);
+updateVotes();
+
+// ---------- 啟動 ----------
+initMermaid();
+renderDocs();
+window.addEventListener("hashchange", route);
+matchMedia("(max-width: 900px)").addEventListener("change", () => activeView && buildToc(activeView));
+route();
+</script>
+</body>
+</html>

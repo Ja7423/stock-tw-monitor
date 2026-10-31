@@ -9,7 +9,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "db:migrate": "wrangler d1 migrations apply stock-tw-monitor --remote",
-    "db:migrate:local": "wrangler d1 migrations apply stock-tw-monitor --local"
+    "db:migrate:local": "wrangler d1 migrations apply stock-tw-monitor --local",
+    "docs:html": "node scripts/build-docs-html.mjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261023.1",

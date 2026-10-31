@@ -97,7 +97,10 @@ curl "http://localhost:8787/__scheduled?cron=0+7+*+*+1-5"
 ```bash
 npm test          # 單元測試
 npm run typecheck
+npm run docs:html # 修改文件後，重新產生 doc/html/index.html
 ```
+
+`doc/html/index.html` 是所有文件的互動版：可以點範例報告看每個數值的說明，也有搜尋、位階計算器和趨勢投票模擬。直接用瀏覽器開啟即可，需要網路載入字型、Markdown 轉換器和 Mermaid。
 
 ## 限制
 
