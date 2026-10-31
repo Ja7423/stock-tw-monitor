@@ -236,7 +236,7 @@ flowchart LR
 | `CLOUDFLARE_API_TOKEN` | GitHub Secret | CI 部署用，權限只開 Workers Scripts:Edit 和 D1:Edit |
 
 - 密鑰都不進版控：本機用 `.dev.vars`（已在 `.gitignore`），線上用 `wrangler secret put`，`.dev.vars.example` 只放假值。
-- `wrangler.toml` 裡的 `database_id` 不是密鑰，沒有 Cloudflare 帳號權限無法存取資料庫。
+- `wrangler.toml` 只寫 `database_name`，不寫 `database_id`：wrangler 部署和跑 migration 時會用名稱查到資料庫，所以同一份設定可以直接給別人部署到自己的帳號。即使 `database_id` 外流也不是密鑰，沒有 Cloudflare 帳號權限無法存取資料庫。
 
 ### 已知限制
 

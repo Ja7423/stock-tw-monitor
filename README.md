@@ -60,7 +60,7 @@ Telegram ──webhook──► Worker fetch()     ──► D1 (watchlist / set
 npm install
 npx wrangler login
 
-# 1. 建立 D1，把輸出的 database_id 填進 wrangler.toml
+# 1. 建立 D1（wrangler 會用 wrangler.toml 裡的 database_name 找到它，不用填 database_id）
 npx wrangler d1 create stock-tw-monitor
 
 # 2. 建立資料表
@@ -72,7 +72,7 @@ npx wrangler secret put TELEGRAM_WEBHOOK_SECRET   # 自己產生的隨機字串�
 npx wrangler secret put ALLOWED_CHAT_ID
 npx wrangler secret put FINMIND_TOKEN
 
-# 4. 部署
+# 4. 部署（如果 wrangler 把 database_id 寫回 wrangler.toml，用 git checkout wrangler.toml 捨棄即可）
 npm run deploy
 
 # 5. 設定 webhook 和指令選單

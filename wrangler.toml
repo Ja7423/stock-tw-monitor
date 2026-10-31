@@ -9,7 +9,6 @@ crons = ["0 7 * * 1-5", "0 8 * * 1-5"]
 [[d1_databases]]
 binding = "DB"
 database_name = "stock-tw-monitor"
-database_id = "1be83109-ec19-46e4-aad9-3c46fbf0c026"
 migrations_dir = "migrations"
 
 [observability]
