@@ -5,7 +5,7 @@
 | 規劃日期 | 2026-11-01 |
 | 規劃方式 | grilling（4 輪，Q1–Q27） |
 | 目前分支 | `master`（實作時開 `feature/portfolio-tracking`） |
-| 狀態 | 待確認 |
+| 狀態 | 已確認，已實作（`feature/portfolio-tracking`） |
 
 ## 需求摘要
 
@@ -438,3 +438,4 @@ const HANDLERS: Record<string, CommandHandler>;
 | 版本 | 日期 | 變更 |
 |------|------|------|
 | v1 | 2026-11-01 | 初版 |
+| v2 | 2026-11-01 | 實作時的調整：(1) 新增 `src/date.ts`（`taipeiDate`、`shiftDate`、`priceFrom`），避免 `portfolioDb.ts` 和 `job.ts` 循環引用；(2) 本機端對端測試發現週末買進的股票沒有前一個收盤價，讀日 K 和回補都改成從第一筆交易往前推 14 天（`PRICE_LOOKBACK_DAYS`），`buildTrend` 也會先走過交易前的 K 棒來帶入價格；(3) 持股摘要由 `job.ts` 自己組（`summarizeHoldings`），共用的讀取放在 `portfolioDb.ts` 的 `loadPortfolio`，不從 `portfolioBot.ts` 匯出，避免循環引用；(4) 每日同步改成 `syncStock(..., backfillFrom)`，沒有任何 K 棒的持股從第一筆交易往前 14 天回補，不是固定 420 天；(5) 持股的歷史日 K 只用 `getEarliestDate` 判斷，`getDateRange` 沒有做 |

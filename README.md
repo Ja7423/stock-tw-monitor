@@ -1,7 +1,8 @@
 # 台股 K 棒監測 (tw-stock-monitor)
 
 每個交易日收盤後，分析監測清單中每檔股票近期的 K 棒走勢，並用 Telegram Bot 推播報告。
-監測清單和參數都用 Telegram 指令管理。
+也可以記錄自己的買賣與股利，追蹤持股的成本、報酬與淨值。
+監測清單、持股和參數都用 Telegram 指令管理。
 
 - 執行環境：Cloudflare Workers（Cron Triggers 和 Telegram webhook）
 - 資料庫：Cloudflare D1
@@ -10,12 +11,13 @@
 ## 架構
 
 ```
-Telegram ──webhook──► Worker fetch()     ──► D1 (watchlist / settings / daily_prices / job_runs)
-                      Worker scheduled() ──► FinMind（增量抓日K）──► 分析 ──► Telegram sendMessage
+Telegram ──webhook──► Worker fetch()     ──► D1 (watchlist / settings / daily_prices / job_runs / trades / stock_info)
+                      Worker scheduled() ──► FinMind（增量抓日K）──► 分析、持股估值 ──► Telegram sendMessage
 ```
 
 - Cron 時間為 UTC 07:00 和 08:00，也就是台北 15:00 和 16:00，只在週一到週五執行。15:00 那次如果沒有任何一檔有當天的 K 棒，就當成休市或資料還沒更新，不發報告，16:00 再補跑一次。`job_runs` 確保同一天只推播一次。如果遇到 FinMind 每小時額度用完（HTTP 402），報告照樣發出，但當天會記為 `quota_exceeded` 而不是 `sent`，16:00 會再補抓並重發一次完整報告。
 - 新增股票時，一次回補 420 個日曆天（約 285 根 K 棒）。之後每天只抓新增的資料。
+- 每日排程同步「監測清單 ∪ 目前持股」，同一檔只抓一次。有持股時，報告後面會再送一則持股摘要和今日損益。
 
 系統架構圖、模組分層、流程圖、安全性設計和資料表請看 [專案架構](doc/architecture.md)。
 
@@ -49,6 +51,14 @@ Telegram ──webhook──► Worker fetch()     ──► D1 (watchlist / set
 /set pct 120                      全域百分位區間
 /override 2330 range=20 ma=5,20   個股覆寫
 /reset 2330                       清除個股覆寫
+/buy 2330 1000 580.5 [10/15]      記錄買進（股數、價格、日期）
+/sell 2330 500 610 [10/20]        記錄賣出
+/div 2330 cash 4500 [日期]        現金股利（stock 50 為股票股利）
+/tradedel 12                      刪除一筆交易
+/holdings                         持股清單與淨值加總
+/pos 2330                         個股成本、報酬與交易紀錄
+/trend [2330] [60]                未實現報酬率趨勢
+/set fee 0.28                     手續費折扣（feemin、feeminodd 為最低手續費）
 ```
 
 預設參數：區間 10 日，MA 5/10/20/60/120/240，百分位 120 日。
