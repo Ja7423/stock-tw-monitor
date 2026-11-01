@@ -29,3 +29,22 @@ export interface WatchItem {
   maPeriods: number[] | null;
   percentileDays: number | null;
 }
+
+export type TradeType = "buy" | "sell" | "cash_dividend" | "stock_dividend";
+
+export interface Trade {
+  id: number;
+  stockId: string;
+  type: TradeType;
+  date: string; // YYYY-MM-DD
+  /** 買賣與股票股利的股數；現金股利為 0 */
+  shares: number;
+  /** 買賣成交價；股利為 null */
+  price: number | null;
+  /** 現金股利入帳金額；其他類型為 0 */
+  amount: number;
+  fee: number;
+  tax: number;
+}
+
+export type NewTrade = Omit<Trade, "id">;

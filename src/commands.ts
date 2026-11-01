@@ -36,6 +36,30 @@ export const COMMAND_GROUPS: CommandGroup[] = [
     ],
   },
   {
+    title: "持股",
+    commands: [
+      {
+        name: "buy",
+        menu: "記錄買進 /buy 2330 1000 580",
+        usage: ["/buy 2330 1000 580.5 [10/15] [fee=82] — 記錄買進（股數、價格、日期）"],
+      },
+      {
+        name: "sell",
+        menu: "記錄賣出 /sell 2330 500 610",
+        usage: ["/sell 2330 500 610 [10/20] [fee=43 tax=915] — 記錄賣出"],
+      },
+      {
+        name: "div",
+        menu: "記錄股利 /div 2330 cash 4500",
+        usage: ["/div 2330 cash 4500 [日期] — 現金股利（入帳金額）", "/div 2330 stock 50 [日期] — 股票股利（股數）"],
+      },
+      { name: "tradedel", menu: "刪除交易 /tradedel 12", usage: ["/tradedel 12 — 刪除一筆交易（編號見 /pos）"] },
+      { name: "holdings", menu: "持股清單與淨值", usage: ["/holdings — 持股清單與淨值加總"] },
+      { name: "pos", menu: "個股明細 /pos 2330", usage: ["/pos 2330 — 個股成本、報酬與交易紀錄"] },
+      { name: "trend", menu: "持股趨勢 /trend 2330 60", usage: ["/trend [2330] [60] — 未實現報酬率趨勢（預設 60 交易日）"] },
+    ],
+  },
+  {
     title: "全域設定",
     commands: [
       {
@@ -45,6 +69,9 @@ export const COMMAND_GROUPS: CommandGroup[] = [
           "/set range 20 — 觀察區間（日）",
           "/set ma 5,20,60,240 — 均線週期",
           "/set pct 240 — 位階百分位區間（日）",
+          "/set fee 0.28 — 手續費折扣（0.28 = 2.8 折）",
+          "/set feemin 20 — 整股最低手續費",
+          "/set feeminodd 1 — 零股最低手續費",
         ],
       },
     ],

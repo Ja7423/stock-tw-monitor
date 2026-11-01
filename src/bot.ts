@@ -2,19 +2,24 @@ import { HELP, MAX_ADD_PER_COMMAND } from "./commands";
 import { STOCK_ID_RE, describeConfig, parseConfigPatch } from "./config";
 import {
   addStock,
+  getFeeConfig,
   getGlobalConfig,
   getJobRun,
   hasStock,
   listWatchlist,
   removeStock,
   resetOverride,
+  setFeeConfig,
   setGlobalConfig,
   setOverride,
 } from "./db";
 import { EXPLAIN } from "./explain";
+import { describeFeeConfig, parseFeePatch } from "./fees";
 import { fetchQuota, fetchStockInfo } from "./finmind";
-import { runReport, syncStock, taipeiDate } from "./job";
-import { formatStatus } from "./status";
+import { taipeiDate } from "./date";
+import { ensureHistory, getSyncLoad, runReport, watchBackfillFrom } from "./job";
+import { handleBuy, handleDiv, handleHoldings, handlePos, handleSell, handleTradeDel, handleTrend } from "./portfolioBot";
+import { formatStatus, syncLoadWarning } from "./status";
 import { sendMessage, type TelegramUpdate } from "./telegram";
 import type { Env } from "./types";
 
@@ -44,7 +49,8 @@ async function handleAdd(env: Env, args: string[]): Promise<string> {
       }
       await addStock(env.DB, id, info.name, info.market);
       try {
-        await syncStock(env, id, today);
+        // 已有持股的股票可能只存了交易日之後的日K，要補到夠算長天期均線
+        await ensureHistory(env, id, watchBackfillFrom(today), today);
         lines.push(`✅ ${id} ${info.name} 已新增`);
       } catch (err) {
         // 已在清單中，下次產生報告時 syncAll 會補抓
@@ -54,6 +60,8 @@ async function handleAdd(env: Env, args: string[]): Promise<string> {
       lines.push(`❌ ${id} 失敗：${(err as Error).message}`);
     }
   }
+  const warning = syncLoadWarning(await getSyncLoad(env.DB, today));
+  if (warning) lines.push(warning);
   return lines.join("\n");
 }
 
@@ -80,12 +88,18 @@ async function handleList(env: Env): Promise<string> {
 }
 
 async function handleSettings(env: Env): Promise<string> {
-  return `⚙️ 全域設定\n${describeConfig(await getGlobalConfig(env.DB))}\n排程：週一至週五 15:00（16:00 補跑）`;
+  const [config, fee] = await Promise.all([getGlobalConfig(env.DB), getFeeConfig(env.DB)]);
+  return `⚙️ 全域設定\n${describeConfig(config)}\n${describeFeeConfig(fee)}\n排程：週一至週五 15:00（16:00 補跑）`;
 }
 
 async function handleSet(env: Env, args: string[]): Promise<string> {
   const [key, value] = args;
-  if (!key || !value) throw new Error("用法：/set range 20、/set ma 5,20,60、/set pct 120");
+  if (!key || !value) throw new Error("用法：/set range 20、/set ma 5,20,60、/set pct 120、/set fee 0.28");
+  const feePatch = parseFeePatch(key, value);
+  if (feePatch) {
+    await setFeeConfig(env.DB, feePatch);
+    return `✅ 手續費設定已更新：${describeFeeConfig(feePatch)}`;
+  }
   const patch = parseConfigPatch([`${key}=${value}`]);
   await setGlobalConfig(env.DB, patch);
   return `✅ 全域設定已更新：${describeConfig(patch)}`;
@@ -106,11 +120,49 @@ async function handleReset(env: Env, args: string[]): Promise<string> {
 
 async function handleStatus(env: Env): Promise<string> {
   const today = taipeiDate(new Date());
-  const [run, quota] = await Promise.all([
+  const [run, quota, load] = await Promise.all([
     getJobRun(env.DB, today),
     fetchQuota(env).catch((err: Error) => err),
+    getSyncLoad(env.DB, today),
   ]);
-  return formatStatus(today, run, quota);
+  return formatStatus(today, run, quota, load);
+}
+
+async function handleReport(env: Env, chatId: number): Promise<null> {
+  await sendMessage(env, chatId, "⏳ 產生報告中…");
+  await runReport(env, new Date(), { force: true, chatId });
+  return null;
+}
+
+/** 多則訊息用陣列；null 表示 handler 自己送過了 */
+type Reply = string | string[] | null;
+type CommandHandler = (env: Env, args: string[], chatId: number) => Promise<Reply>;
+
+const HANDLERS: Record<string, CommandHandler> = {
+  "/start": async () => HELP,
+  "/help": async () => HELP,
+  "/add": handleAdd,
+  "/del": handleDel,
+  "/list": handleList,
+  "/settings": handleSettings,
+  "/set": handleSet,
+  "/override": handleOverride,
+  "/reset": handleReset,
+  "/status": handleStatus,
+  "/explain": async () => EXPLAIN,
+  "/report": (env, _args, chatId) => handleReport(env, chatId),
+  "/buy": handleBuy,
+  "/sell": handleSell,
+  "/div": handleDiv,
+  "/tradedel": handleTradeDel,
+  "/holdings": handleHoldings,
+  "/pos": handlePos,
+  "/trend": handleTrend,
+};
+
+function toMessages(reply: Reply): string[] {
+  if (reply === null) return [];
+  return Array.isArray(reply) ? reply : [reply];
 }
 
 export async function handleUpdate(env: Env, update: TelegramUpdate): Promise<void> {
@@ -123,48 +175,9 @@ export async function handleUpdate(env: Env, update: TelegramUpdate): Promise<vo
   const cmd = rawCmd.split("@")[0].toLowerCase();
 
   try {
-    let reply: string | null;
-    switch (cmd) {
-      case "/start":
-      case "/help":
-        reply = HELP;
-        break;
-      case "/add":
-        reply = await handleAdd(env, args);
-        break;
-      case "/del":
-        reply = await handleDel(env, args);
-        break;
-      case "/list":
-        reply = await handleList(env);
-        break;
-      case "/settings":
-        reply = await handleSettings(env);
-        break;
-      case "/set":
-        reply = await handleSet(env, args);
-        break;
-      case "/override":
-        reply = await handleOverride(env, args);
-        break;
-      case "/reset":
-        reply = await handleReset(env, args);
-        break;
-      case "/status":
-        reply = await handleStatus(env);
-        break;
-      case "/explain":
-        reply = EXPLAIN;
-        break;
-      case "/report":
-        await sendMessage(env, chatId, "⏳ 產生報告中…");
-        await runReport(env, new Date(), { force: true, chatId });
-        reply = null;
-        break;
-      default:
-        reply = `看不懂的指令：${rawCmd}\n輸入 /help 查看用法`;
-    }
-    if (reply) await sendMessage(env, chatId, reply);
+    const handler = HANDLERS[cmd];
+    const reply = handler ? await handler(env, args, chatId) : `看不懂的指令：${rawCmd}\n輸入 /help 查看用法`;
+    for (const text of toMessages(reply)) await sendMessage(env, chatId, text);
   } catch (err) {
     await sendMessage(env, chatId, `❌ ${(err as Error).message}`);
   }

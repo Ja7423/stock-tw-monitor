@@ -18,7 +18,7 @@ flowchart LR
       fetchH["fetch()<br/>POST /telegram/webhook<br/>GET /health"]
       schedH["scheduled()"]
     end
-    d1[("D1：stock-tw-monitor<br/>watchlist / settings<br/>daily_prices / job_runs")]
+    d1[("D1：stock-tw-monitor<br/>watchlist / settings<br/>daily_prices / job_runs<br/>trades / stock_info")]
   end
 
   user <--> tg
@@ -38,7 +38,7 @@ flowchart LR
 | Telegram Bot API | 收使用者指令（webhook 推給 Worker），送出回覆和報告 |
 | Cron Triggers | 每個交易日 UTC 07:00、08:00（台北 15:00、16:00）觸發 `scheduled()` |
 | Worker | 唯一的執行環境。`fetch()` 處理 webhook，`scheduled()` 產生每日報告 |
-| D1 | 存監測清單、設定、日 K 快取和每日執行紀錄 |
+| D1 | 存監測清單、設定、日 K 快取、每日執行紀錄，以及持股的交易紀錄 |
 | FinMind | 台股日 K 和股票基本資料的來源 |
 | GitHub Actions | push 到 `master` 時跑型別檢查、測試、D1 migration，再部署 Worker |
 
@@ -51,7 +51,8 @@ flowchart TD
   end
 
   subgraph flow["流程"]
-    bot["bot.ts<br/>解析與執行指令"]
+    bot["bot.ts<br/>指令分派、監測指令"]
+    pbot["portfolioBot.ts<br/>持股指令"]
     job["job.ts<br/>同步日K、產生報告"]
   end
 
@@ -61,45 +62,65 @@ flowchart TD
     config["config.ts<br/>參數預設、驗證、合併"]
     explain["explain.ts<br/>/explain 說明文字"]
     commands["commands.ts<br/>指令清單、/help、選單"]
-    status["status.ts<br/>/status 狀態文字"]
+    status["status.ts<br/>/status 狀態文字、同步量估計"]
+    portfolio["portfolio.ts<br/>持股重算、估值、趨勢"]
+    fees["fees.ts<br/>手續費、證交稅"]
+    tradeArgs["tradeArgs.ts<br/>交易指令參數"]
+    preport["portfolioReport.ts<br/>持股文字格式"]
   end
 
   subgraph io["外部服務"]
     db["db.ts<br/>D1 存取"]
+    pdb["portfolioDb.ts<br/>trades / stock_info"]
     finmind["finmind.ts<br/>FinMind API"]
     telegram["telegram.ts<br/>sendMessage"]
   end
 
   index --> bot
   index --> job
+  bot --> pbot
   bot --> job
   bot --> config
   bot --> explain
   bot --> commands
   bot --> status
+  bot --> fees
   bot --> db
   bot --> finmind
   bot --> telegram
+  pbot --> job
+  pbot --> portfolio
+  pbot --> tradeArgs
+  pbot --> preport
+  pbot --> status
+  pbot --> pdb
+  pbot --> finmind
   job --> analysis
   job --> report
+  job --> portfolio
+  job --> preport
   job --> config
   job --> db
+  job --> pdb
   job --> finmind
   job --> telegram
   report --> analysis
+  preport --> portfolio
+  portfolio --> fees
   db --> config
+  pdb --> db
 ```
 
 模組分成四層，箭頭只往下指：
 
 - **進入點** `index.ts`：Worker 的 `fetch` 和 `scheduled` handler。webhook 會先驗證 `X-Telegram-Bot-Api-Secret-Token`，再交給 `bot.ts` 處理。
-- **流程** `bot.ts`、`job.ts`：串接下面兩層。`/report` 和 `/add` 會重用 `job.ts` 的 `runReport`、`syncStock`。
-- **純邏輯** `analysis.ts`、`report.ts`、`config.ts`、`explain.ts`、`commands.ts`：輸入資料、回傳結果，不呼叫任何外部服務，所以單元測試（`test/`）都集中在這一層。
-- **外部服務** `db.ts`、`finmind.ts`、`telegram.ts`：各包一個外部服務，其他模組不直接下 SQL 或呼叫 HTTP API。
+- **流程** `bot.ts`、`portfolioBot.ts`、`job.ts`：串接下面兩層。`bot.ts` 用指令名稱查表分派，持股指令交給 `portfolioBot.ts`。`/report` 重用 `job.ts` 的 `runReport`；`/add`、`/buy` 重用 `ensureHistory` 回補日 K。
+- **純邏輯** `analysis.ts`、`report.ts`、`config.ts`、`explain.ts`、`commands.ts`、`status.ts`、`portfolio.ts`、`fees.ts`、`tradeArgs.ts`、`portfolioReport.ts`，以及共用的 `format.ts`（數字格式）、`message.ts`（依 Telegram 長度拆訊息）、`date.ts`（台北日期）：輸入資料、回傳結果，不呼叫任何外部服務，所以單元測試（`test/`）都集中在這一層。
+- **外部服務** `db.ts`、`portfolioDb.ts`、`finmind.ts`、`telegram.ts`：各包一個外部服務，其他模組不直接下 SQL 或呼叫 HTTP API。`portfolioDb.ts` 只放持股用的資料表，手續費設定和其他全域設定一樣放在 `db.ts`。
 
 `commands.ts` 是指令清單的唯一來源，`/help` 的文字和 Telegram 選單都從它產生。`scripts/set-commands.mjs` 會直接用 Node 載入它來呼叫 `setMyCommands`，所以它不 import 其他模組。
 
-`types.ts` 放共用型別（`Env`、`Bar`、`StockConfig`、`WatchItem`），幾乎每個模組都會引用，圖中省略。
+`types.ts` 放共用型別（`Env`、`Bar`、`StockConfig`、`WatchItem`、`Trade`），`format.ts`、`message.ts`、`date.ts` 也被很多模組引用，圖中省略。
 
 ## 每日報告流程
 
@@ -117,8 +138,8 @@ sequenceDiagram
   alt 今天已推播
     Job-->>Cron: 結束
   end
-  Job->>DB: 讀 watchlist
-  loop 每檔股票
+  Job->>DB: 讀 watchlist 與目前持股
+  loop 監測 ∪ 持股的每檔股票（同一檔只抓一次）
     Job->>DB: daily_prices 最新日期
     opt 還沒有今天的K棒
       Job->>FM: 抓最新日期之後的日K
@@ -128,10 +149,14 @@ sequenceDiagram
   end
   Job->>DB: 讀 settings 與每檔最近 300 根K棒
   Job->>Job: analyze() 與 formatReport()
-  alt 沒有任何一檔有今天的K棒
+  opt 有持股
+    Job->>DB: 讀 trades 與持股的日K
+    Job->>Job: buildHoldings()、buildTrend() 與 formatDailySummary()
+  end
+  alt 監測與持股都沒有今天的K棒
     Job->>DB: job_runs 記為 no_data，等 16:00 補跑
   else 有資料
-    Job->>TG: sendMessage，超過長度會拆成多則
+    Job->>TG: sendMessage 報告，再送持股摘要，超過長度會拆成多則
     Job->>DB: job_runs 記為 sent，FinMind 額度用完則記為 quota_exceeded，等 16:00 補跑
     Job->>DB: 刪除 600 天前的日K
   end
@@ -140,6 +165,18 @@ sequenceDiagram
 - 單一股票抓資料失敗不會中斷報告，會列在報告最後的「⚠️ 更新失敗」，該股票用資料庫裡既有的 K 棒分析。
 - FinMind 回 402（每小時額度用完）時，剩下的股票不再呼叫 FinMind，一起列在「⚠️ 更新失敗」。當天記為 `quota_exceeded`，16:00 的 cron 會補抓並重發，所以那天可能收到兩份報告。
 - 手動 `/report` 走同一個 `runReport`，但略過「今天已推播」和「沒有當天資料」兩個檢查，也不寫 `job_runs`。
+- 監測清單是空的、但有持股時，只送持股摘要（以及更新失敗的股票）。
+- 已出清的股票不再每天同步：它們的趨勢只需要出清前的日 K，已經存在 D1 裡。
+
+### 持股計算
+
+持股不存狀態。`portfolio.ts` 的 `replayTrades` 每次都把某檔股票的全部交易依（日期、編號）重新套用一次，得到股數、持有成本（移動加權平均，含買進手續費）、已實現損益和每筆賣出的損益。補登過去日期或刪除交易後，均價、損益和趨勢都會自動更正。
+
+- 寫入或刪除交易前，`portfolioBot.ts` 先用「既有交易 + 新交易」或「刪除後的交易」重算一次，任何一天股數變負就拒絕。
+- 每種交易類型（`buy`、`sell`、`cash_dividend`、`stock_dividend`）各有一個 reducer，新增類型（例如減資）只需要新增一個。
+- 手續費和證交稅在記錄當下用 `fees.ts` 算好存進 `trades`，之後改費率不影響過去的交易；估值時的「預估賣出費用」用目前的費率。
+- `buildTrend` 走過每個交易日，依序套用當天以前的交易，用當天（或之前最近一根）的收盤價估值。每日持股摘要的「今日損益」就是最後兩個點的總損益相減。
+- 讀取日 K 和回補時，都從第一筆交易往前推 14 天開始，讓週末或連假買進的股票也拿得到前一個收盤價。
 
 ## Telegram 指令流程
 
@@ -172,7 +209,7 @@ sequenceDiagram
   TG->>U: 回覆
 ```
 
-`/report` 走上面的每日報告流程。`/status` 讀 D1 的 `job_runs`，並呼叫 FinMind `user_info` 查詢這一小時的請求用量（這個查詢不算額度）。其他指令（`/list`、`/del`、`/set`、`/override` 等）只讀寫 D1，不會呼叫 FinMind。`/explain`、`/help` 直接回傳固定文字。
+`/report` 走上面的每日報告流程。`/status` 讀 D1 的 `job_runs`，並呼叫 FinMind `user_info` 查詢這一小時的請求用量（這個查詢不算額度）。`/buy`、`/sell` 遇到從沒出現過的股票時查 `TaiwanStockInfo`，之後回補日 K，流程和 `/add` 一樣。`/holdings`、`/pos`、`/trend` 和其他指令（`/list`、`/del`、`/set`、`/override`、`/div`、`/tradedel` 等）只讀寫 D1，不會呼叫 FinMind。`/explain`、`/help` 直接回傳固定文字。
 
 ## 安全性設計
 
@@ -205,7 +242,7 @@ flowchart TD
 | 其他 Telegram 使用者找到這個 bot 並下指令 | 只處理 `ALLOWED_CHAT_ID` 的訊息，其他 chat 一律不回應，不洩漏 bot 的存在與用途 | `src/bot.ts` `handleUpdate` |
 | 外部觸發每日報告、洗版推播 | 報告只由 Cron Trigger 呼叫 `scheduled()`，沒有對外的 HTTP 入口；`job_runs` 確保一天只自動推播一次 | `src/index.ts`、`src/job.ts` |
 | SQL injection | 所有 SQL 都用 `prepare().bind()` 參數化，使用者輸入不會拼進 SQL 字串 | `src/db.ts` |
-| 惡意或錯誤的參數 | 股票代號必須符合 `^\d{4,6}[A-Z]?$`；`range`、`ma`、`pct` 有上下限；均線最多 8 條 | `src/config.ts` |
+| 惡意或錯誤的參數 | 股票代號必須符合 `^\d{4,6}[A-Z]?$`；`range`、`ma`、`pct` 有上下限；均線最多 8 條；交易的股數、價格、金額、日期、天數都有範圍檢查，不能記錄未來日期 | `src/config.ts`、`src/tradeArgs.ts`、`src/fees.ts` |
 | 一次塞大量股票，耗盡對外請求額度 | `/add` 一次最多 10 檔 | `src/commands.ts` `MAX_ADD_PER_COMMAND` |
 | Telegram 等太久而重送同一則訊息，造成指令重複執行 | 先回 200，再用 `waitUntil` 在背景處理 | `src/index.ts` |
 | 錯誤訊息帶出大量外部回應內容 | FinMind、Telegram 的錯誤回應只保留前 200 字 | `src/finmind.ts`、`src/telegram.ts` |
@@ -285,8 +322,26 @@ erDiagram
     INTEGER volume
   }
   settings {
-    TEXT key PK "range_days / ma_periods / percentile_days"
+    TEXT key PK "range_days / ma_periods / percentile_days / fee_discount / fee_min / fee_min_odd"
     TEXT value
+  }
+  stock_info ||--o{ trades : "stock_id"
+  stock_info {
+    TEXT stock_id PK
+    TEXT name
+    TEXT market
+  }
+  trades {
+    INTEGER id PK
+    TEXT stock_id
+    TEXT type "buy / sell / cash_dividend / stock_dividend"
+    TEXT trade_date
+    INTEGER shares
+    REAL price "股利為 NULL"
+    INTEGER amount "現金股利入帳金額"
+    INTEGER fee
+    INTEGER tax
+    TEXT created_at
   }
   job_runs {
     TEXT run_date PK
@@ -297,7 +352,8 @@ erDiagram
 ```
 
 - `settings` 存全域參數，`watchlist` 的三個覆寫欄位不是 NULL 時優先使用（`config.ts` 的 `resolveConfig`）。
-- `daily_prices` 是 FinMind 日 K 的快取，讓每天只需要抓新增的資料。資料表之間沒有宣告外鍵，`/del` 時由程式一併刪除該股票的日 K。
+- `daily_prices` 是 FinMind 日 K 的快取，讓每天只需要抓新增的資料。資料表之間沒有宣告外鍵，`/del` 時由程式一併刪除該股票的日 K。有交易紀錄的股票例外：`/del` 和每日刪除 600 天前日 K 時都會保留，因為持股的估值和趨勢要用到。
+- `trades` 是持股唯一的資料來源，持股、均價和損益都從它重算。`stock_info` 存有交易紀錄的股票名稱，因為持股不一定在 `watchlist` 裡。
 - `job_runs` 一天一筆，用來避免同一天重複推播。
 
 Schema 定義在 `migrations/`，部署時由 GitHub Actions 自動套用。

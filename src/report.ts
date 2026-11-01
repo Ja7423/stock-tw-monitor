@@ -1,5 +1,7 @@
 import type { Alignment, Analysis, Structure, Trend } from "./analysis";
 import { WEEK52_BARS } from "./analysis";
+import { fmtPct, fmtPrice, fmtSigned } from "./format";
+import { splitMessages } from "./message";
 import type { StockConfig, WatchItem } from "./types";
 
 export interface StockResult {
@@ -8,16 +10,9 @@ export interface StockResult {
   analysis: Analysis | null;
 }
 
-const TELEGRAM_LIMIT = 4000;
-
 const TREND_LABEL: Record<Trend, string> = { up: "⬆️ 偏多", down: "⬇️ 偏空", sideways: "↔️ 盤整" };
 const STRUCTURE_LABEL: Record<Structure, string> = { higher: "高低點墊高", lower: "高低點下移", mixed: "高低點交錯" };
 const ALIGNMENT_LABEL: Record<Alignment, string> = { bullish: "多頭排列", bearish: "空頭排列", mixed: "均線糾結" };
-
-const priceFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
-const fmtPrice = (n: number) => priceFormat.format(n);
-const fmtSigned = (n: number) => `${n >= 0 ? "+" : ""}${fmtPrice(n)}`;
-const fmtPct = (n: number, digits = 1) => `${n >= 0 ? "+" : ""}${n.toFixed(digits)}%`;
 
 export function formatStock({ item, analysis: a }: StockResult, today: string): string {
   const title = `${item.stockId} ${item.name}`;
@@ -67,19 +62,10 @@ export function formatReport(today: string, global: StockConfig, results: StockR
     `偏多 ${count("up")}｜偏空 ${count("down")}｜盤整 ${count("sideways")}`;
 
   const blocks = [header, ...results.map((r) => formatStock(r, today))];
-  if (errors.length > 0) blocks.push(`⚠️ 更新失敗\n${errors.map((e) => `  ${e}`).join("\n")}`);
+  if (errors.length > 0) blocks.push(formatSyncErrors(errors));
+  return splitMessages(blocks);
+}
 
-  const messages: string[] = [];
-  let current = "";
-  for (const block of blocks) {
-    const next = current ? `${current}\n━━━━━━━━━━\n${block}` : block;
-    if (next.length > TELEGRAM_LIMIT && current) {
-      messages.push(current);
-      current = block;
-    } else {
-      current = next;
-    }
-  }
-  if (current) messages.push(current);
-  return messages;
+export function formatSyncErrors(errors: string[]): string {
+  return `⚠️ 更新失敗\n${errors.map((e) => `  ${e}`).join("\n")}`;
 }
