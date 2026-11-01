@@ -16,6 +16,18 @@ export const LIMITS = {
 
 export const STOCK_ID_RE = /^\d{4,6}[A-Z]?$/;
 
+// Cloudflare 免費方案每次執行約 50 個對外請求；每日排程每檔股票 1 個，再加上 Telegram 訊息
+export const SUBREQUEST_LIMIT = 50;
+export const SYNC_WARN_STOCKS = 40;
+
+/** 單一股票代號，轉成大寫後驗證格式 */
+export function parseStockId(raw: string | undefined): string {
+  if (!raw) throw new Error("請提供股票代號，例如 2330");
+  const id = raw.toUpperCase();
+  if (!STOCK_ID_RE.test(id)) throw new Error(`股票代號格式錯誤：${raw}`);
+  return id;
+}
+
 export function resolveConfig(global: StockConfig, item: WatchItem): StockConfig {
   return {
     rangeDays: item.rangeDays ?? global.rangeDays,
@@ -24,7 +36,7 @@ export function resolveConfig(global: StockConfig, item: WatchItem): StockConfig
   };
 }
 
-function parseIntInRange(raw: string, [min, max]: readonly [number, number], label: string): number {
+export function parseIntInRange(raw: string, [min, max]: readonly [number, number], label: string): number {
   const n = Number(raw);
   if (!Number.isInteger(n) || n < min || n > max) {
     throw new Error(`${label} 必須是 ${min}~${max} 的整數，收到「${raw}」`);
