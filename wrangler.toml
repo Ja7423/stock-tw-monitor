@@ -3,8 +3,9 @@ main = "src/index.ts"
 compatibility_date = "2025-09-01"
 
 # Cron 使用 UTC：07:00 = 台北 15:00（主要），08:00 = 台北 16:00（資料延遲時補跑）
+# 星期用英文縮寫：Cloudflare 的數字是 1 = 週日，寫 1-5 會變成週日到週四
 [triggers]
-crons = ["0 7 * * 1-5", "0 8 * * 1-5"]
+crons = ["0 7 * * mon-fri", "0 8 * * mon-fri"]
 
 [[d1_databases]]
 binding = "DB"

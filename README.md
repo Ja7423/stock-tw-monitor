@@ -129,7 +129,7 @@ cp .dev.vars.example .dev.vars   # 填入實際的值
 npm run db:migrate:local
 npm run dev
 # 另開終端機觸發排程：
-curl "http://localhost:8787/__scheduled?cron=0+7+*+*+1-5"
+curl "http://localhost:8787/__scheduled?cron=0+7+*+*+mon-fri"
 ```
 
 ```bash
