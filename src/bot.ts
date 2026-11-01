@@ -43,8 +43,13 @@ async function handleAdd(env: Env, args: string[]): Promise<string> {
         continue;
       }
       await addStock(env.DB, id, info.name, info.market);
-      await syncStock(env, id, today);
-      lines.push(`✅ ${id} ${info.name} 已新增`);
+      try {
+        await syncStock(env, id, today);
+        lines.push(`✅ ${id} ${info.name} 已新增`);
+      } catch (err) {
+        // 已在清單中，下次產生報告時 syncAll 會補抓
+        lines.push(`⚠️ ${id} ${info.name} 已新增，歷史資料稍後補抓（${(err as Error).message}）`);
+      }
     } catch (err) {
       lines.push(`❌ ${id} 失敗：${(err as Error).message}`);
     }
